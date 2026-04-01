@@ -44,6 +44,14 @@
         .yr-btn:hover { background: #193061; }
         .basemap-btn { padding: 4px 8px; font-size: 11px; border-radius: 4px; border: 1px solid #3b5998; background: transparent; color: #c0d0f0; cursor: pointer; }
         .basemap-btn.active { background: #2b5dbc; border-color: #63b3ed; color: #fff; }
+        #parcelBtn { padding: 5px 12px; font-size: 11px; border-radius: 999px; border: 2px solid #00e5ff; background: transparent; color: #00e5ff; cursor: pointer; font-weight: bold; transition: all 0.15s; margin-left: 8px; }
+        #parcelBtn.active { background: #00e5ff; color: #091127; }
+        #parcelBtn:hover { background: #00e5ff33; }
+        .parcel-crosshair { cursor: crosshair !important; }
+        #notification { position: fixed; top: 12px; left: 50%; transform: translateX(-50%); padding: 8px 18px; border-radius: 6px; font-size: 12px; z-index: 10000; display: none; }
+        #notification.info { background: #1e3a5f; color: #93c5fd; border: 1px solid #3b82f6; }
+        #notification.error { background: #5f1e1e; color: #fca5a5; border: 1px solid #ef4444; }
+        #notification.loading { background: #1e3a5f; color: #93c5fd; border: 1px solid #3b82f6; }
     </style>
 </head>
 <body>
@@ -63,7 +71,9 @@
             <button class="basemap-btn" data-base="hybrid">Hybrid</button>
         </span>
         <span style="margin-left:12px; display:inline-flex; gap:6px; flex-wrap:wrap;" id="layerToggles"></span>
+        <button id="parcelBtn" title="Toggle parcel query mode — click map to query county GIS">&#x1F4CD; Parcel Query</button>
     </div>
+    <div id="notification"></div>
     <div id="year-bar">
         <span class="label">Year:</span>
         <button class="yr-btn" id="yrAll">All</button>
@@ -358,6 +368,245 @@
 
         // Initial count
         refreshMarkers();
+
+        // ==========================================
+        // PARCEL QUERY LAYER
+        // ==========================================
+        const counties = [
+            {
+                name: 'Harris County', state: 'TX',
+                bounds: { latMin:29.0, latMax:30.5, lngMin:-96.2, lngMax:-94.5 },
+                url: 'https://www.gis.hctx.net/arcgis/rest/services/HCAD/Parcels/MapServer/0/query',
+                fieldMap: { owner:'owner_name_1', address:'site_str_num,site_str_name,site_str_sfx', parcelId:'HCAD_NUM',
+                    marketValue:'total_market_val', landValue:'land_value', acreage:'Acreage', sqft:'land_sqft',
+                    legal:'legal_dscr_1', ownerDate:'new_owner_date', landUse:'land_use' }
+            },
+            {
+                name: 'Dallas County', state: 'TX',
+                bounds: { latMin:32.5, latMax:33.1, lngMin:-97.1, lngMax:-96.4 },
+                url: 'https://gis.dallascityhall.com/arcgis/rest/services/Basemap/DallasTaxParcels/FeatureServer/0/query',
+                fieldMap: { owner:'TAXPANAME1', address:'ST_NUM,ST_DIR,ST_NAME,ST_TYPE', parcelId:'ACCT',
+                    legal:'LEGAL_1', city:'CITY' }
+            },
+            {
+                name: 'Tarrant County', state: 'TX',
+                bounds: { latMin:32.4, latMax:33.0, lngMin:-97.7, lngMax:-97.0 },
+                url: 'https://mapit.tarrantcounty.com/arcgis/rest/services/Tax/TCProperty/MapServer/0/query',
+                fieldMap: { owner:'OWNER_NAME', address:'SITUS_ADDR', parcelId:'ACCOUNT',
+                    totalValue:'TOTAL_VALU', landValue:'LAND_VALUE', imprValue:'IMPR_VALUE',
+                    acreage:'LAND_ACRES', sqft:'LAND_SQFT', yearBuilt:'YEAR_BUILT',
+                    deedDate:'DEED_DATE', legal:'LEGAL_1' }
+            },
+            {
+                name: 'Fulton County', state: 'GA',
+                bounds: { latMin:33.5, latMax:34.1, lngMin:-84.6, lngMax:-84.2 },
+                url: 'https://gismaps.fultoncountyga.gov/arcgispub2/rest/services/PropertyMapViewer/ParcelQuery/MapServer/0/query',
+                fieldMap: { owner:'Owner', address:'Address', parcelId:'ParcelID',
+                    totalAppr:'TotAppr', landAppr:'LandAppr', imprAppr:'ImprAppr',
+                    totalAssess:'TotAssess', acreage:'LandAcres', landUse:'LUCode',
+                    subdivision:'Subdiv' }
+            },
+            {
+                name: 'Miami-Dade County', state: 'FL',
+                bounds: { latMin:25.0, latMax:26.0, lngMin:-80.9, lngMax:-80.0 },
+                url: 'https://gisweb.miamidade.gov/arcgis/rest/services/MD_LandInformation/MapServer/26/query',
+                fieldMap: { owner:'TRUE_OWNER1', address:'TRUE_SITE_ADDR', city:'TRUE_SITE_CITY',
+                    parcelId:'FOLIO', zoning:'PRIMARY_ZONE', yearBuilt:'YEAR_BUILT',
+                    totalValue:'TOTAL_VAL_CUR', landValue:'LAND_VAL_CUR', bldgValue:'BUILDING_VAL_CUR',
+                    lotSize:'LOT_SIZE', bldgArea:'BUILDING_GROSS_AREA', subdivision:'SUBDIVISION' }
+            },
+            {
+                name: 'Hillsborough County', state: 'FL',
+                bounds: { latMin:27.5, latMax:28.2, lngMin:-82.8, lngMax:-82.1 },
+                url: 'https://maps.hillsboroughcounty.org/arcgis/rest/services/InfoLayers/HC_Parcels/FeatureServer/0/query',
+                fieldMap: { owner:'OWNER', address:'SITE_ADDR', city:'SITE_CITY', parcelId:'FOLIO',
+                    marketValue:'MARKET_VAL', taxValue:'TAX_VAL', landValue:'LAND', bldgValue:'BLDG',
+                    saleDate:'S_DATE', saleAmt:'S_AMT', acreage:'ACREAGE', dorCode:'DOR_CODE' }
+            },
+            {
+                name: 'Orange County', state: 'FL',
+                bounds: { latMin:28.0, latMax:29.0, lngMin:-82.0, lngMax:-81.0 },
+                url: 'https://www.ocgis.com/arcpub/rest/services/Map_Layers/Parcels/MapServer/0/query',
+                fieldMap: { address:'SITE_ADDRESS', parcelId:'ASSESSMENT_NO', yearBuilt:'YEAR_BUILT' }
+            }
+        ];
+
+        let parcelMode = false;
+        let parcelLayer = null;
+
+        function notify(msg, type, duration) {
+            const el = document.getElementById('notification');
+            el.textContent = msg;
+            el.className = type || 'info';
+            el.style.display = 'block';
+            if (duration) setTimeout(() => el.style.display = 'none', duration);
+        }
+
+        function identifyCounty(lat, lng) {
+            for (const c of counties) {
+                const b = c.bounds;
+                if (lat >= b.latMin && lat <= b.latMax && lng >= b.lngMin && lng <= b.lngMax) return c;
+            }
+            return null;
+        }
+
+        function fmtDollar(v) {
+            if (v == null || v === '' || v === 0) return null;
+            const n = Number(v);
+            if (isNaN(n)) return String(v);
+            return '$' + n.toLocaleString('en-US', { maximumFractionDigits: 0 });
+        }
+
+        function fmtDate(v) {
+            if (!v) return null;
+            if (typeof v === 'number') {
+                const d = new Date(v);
+                if (!isNaN(d)) return d.toLocaleDateString('en-US');
+            }
+            return String(v);
+        }
+
+        function buildAddress(attrs, fm) {
+            if (fm.address && fm.address.includes(',')) {
+                // Composite address from multiple fields
+                const parts = fm.address.split(',').map(f => attrs[f.trim()]).filter(Boolean);
+                return parts.join(' ');
+            }
+            return attrs[fm.address] || null;
+        }
+
+        function drawParcel(geometry) {
+            if (parcelLayer) map.removeLayer(parcelLayer);
+            if (!geometry || !geometry.rings) return;
+            // Convert Esri rings to Leaflet LatLng arrays
+            const polys = geometry.rings.map(ring => ring.map(pt => [pt[1], pt[0]]));
+            parcelLayer = L.polygon(polys, {
+                color: '#00ffff', weight: 3, fillColor: '#00ffff', fillOpacity: 0.12,
+                dashArray: '6,4'
+            }).addTo(map);
+        }
+
+        function showParcelDetail(attrs, county) {
+            const fm = county.fieldMap;
+            const addr = buildAddress(attrs, fm);
+            const owner = attrs[fm.owner] || null;
+            const pid = attrs[fm.parcelId] || null;
+            const zoning = attrs[fm.zoning] || null;
+            const yearBuilt = attrs[fm.yearBuilt] || null;
+            const subdivision = attrs[fm.subdivision] || null;
+            const legal = attrs[fm.legal] || null;
+
+            // Values
+            const mv = fmtDollar(attrs[fm.marketValue] || attrs[fm.totalAppr] || attrs[fm.totalValue]);
+            const lv = fmtDollar(attrs[fm.landValue] || attrs[fm.landAppr]);
+            const bv = fmtDollar(attrs[fm.bldgValue] || attrs[fm.imprValue] || attrs[fm.imprAppr]);
+            const tv = fmtDollar(attrs[fm.taxValue] || attrs[fm.totalAssess]);
+            const sa = fmtDollar(attrs[fm.saleAmt]);
+            const sd = fmtDate(attrs[fm.saleDate] || attrs[fm.ownerDate] || attrs[fm.deedDate]);
+            const ac = attrs[fm.acreage] ? Number(attrs[fm.acreage]).toFixed(2) + ' AC' : null;
+            const sqft = attrs[fm.sqft] ? Number(attrs[fm.sqft]).toLocaleString() + ' SF' : null;
+            const lot = attrs[fm.lotSize] ? Number(attrs[fm.lotSize]).toLocaleString() + ' SF' : null;
+            const bldgArea = attrs[fm.bldgArea] ? Number(attrs[fm.bldgArea]).toLocaleString() + ' SF' : null;
+            const city = attrs[fm.city] || null;
+
+            const rows = [
+                ['Owner', owner],
+                ['Address', [addr, city, county.state].filter(Boolean).join(', ')],
+                ['Parcel ID', pid],
+                ['Market/Appraised Value', mv],
+                ['Land Value', lv],
+                ['Building Value', bv],
+                ['Tax/Assessed Value', tv],
+                ['Last Sale Price', sa],
+                ['Last Sale/Deed Date', sd],
+                ['Land Area', ac || sqft || lot],
+                ['Building Area', bldgArea],
+                ['Year Built', yearBuilt],
+                ['Zoning', zoning],
+                ['Subdivision', subdivision],
+                ['Legal Description', legal],
+            ].filter(([, v]) => v != null && v !== '' && v !== 'null');
+
+            const html = `
+                <h2>Parcel Query Result</h2>
+                <span class="badge" style="background:#00e5ff30;color:#00e5ff;border:1px solid #00e5ff80">${county.name}</span>
+                <div class="detail-grid" style="margin-top:10px;">
+                    ${rows.map(([label, val]) => {
+                        const isPrice = /value|price|sale/i.test(label);
+                        return `<div class="detail-full"><div class="detail-label">${label}</div><div class="detail-value${isPrice?' price':''}">${val}</div></div>`;
+                    }).join('')}
+                </div>
+                <div class="source" style="margin-top:12px;">Source: ${county.name} GIS &bull; Data may not reflect recent transactions</div>
+            `;
+            document.getElementById('detail-content').innerHTML = html;
+        }
+
+        async function queryParcel(latlng) {
+            const county = identifyCounty(latlng.lat, latlng.lng);
+            if (!county) {
+                notify('No parcel data available for this location', 'error', 3000);
+                return;
+            }
+            notify('Querying ' + county.name + ' parcels...', 'loading');
+
+            const params = new URLSearchParams({
+                geometry: `${latlng.lng},${latlng.lat}`,
+                geometryType: 'esriGeometryPoint',
+                spatialRel: 'esriSpatialRelIntersects',
+                outFields: '*',
+                returnGeometry: 'true',
+                f: 'json',
+                inSR: '4326',
+                outSR: '4326'
+            });
+
+            try {
+                const controller = new AbortController();
+                const timeout = setTimeout(() => controller.abort(), 10000);
+                const resp = await fetch(county.url + '?' + params, { signal: controller.signal });
+                clearTimeout(timeout);
+                const data = await resp.json();
+
+                if (data.error) {
+                    notify(`${county.name}: ${data.error.message || 'Query error'}`, 'error', 4000);
+                    return;
+                }
+                if (!data.features || data.features.length === 0) {
+                    notify('No parcel found at this location in ' + county.name, 'error', 3000);
+                    return;
+                }
+
+                const feature = data.features[0];
+                drawParcel(feature.geometry);
+                showParcelDetail(feature.attributes, county);
+                document.getElementById('notification').style.display = 'none';
+            } catch (e) {
+                if (e.name === 'AbortError') {
+                    notify(`${county.name} query timed out. Try again later.`, 'error', 4000);
+                } else {
+                    // Likely CORS — some county endpoints may block cross-origin requests
+                    notify(`${county.name} parcel data unavailable (may be CORS-blocked). Try again later.`, 'error', 4000);
+                }
+            }
+        }
+
+        // Toggle button
+        const parcelBtn = document.getElementById('parcelBtn');
+        parcelBtn.addEventListener('click', () => {
+            parcelMode = !parcelMode;
+            parcelBtn.classList.toggle('active', parcelMode);
+            document.getElementById('map').classList.toggle('parcel-crosshair', parcelMode);
+            if (!parcelMode && parcelLayer) {
+                map.removeLayer(parcelLayer);
+                parcelLayer = null;
+            }
+        });
+
+        // Map click handler — only fires in parcel mode
+        map.on('click', (e) => {
+            if (parcelMode) queryParcel(e.latlng);
+        });
+
     </script>
 </body>
 </html>
