@@ -139,6 +139,55 @@
         }
         .zhvi-preset:hover { background: #1e1e3e; border-color: #5a5a7c; }
         .zhvi-preset.active { background: #2b5dbc; border-color: #63b3ed; color: #fff; }
+        /* Wealth Cloud overlay — dual-range slider */
+        .wc-slider-wrap {
+            position: relative; height: 28px; margin: 6px 0 2px;
+        }
+        .wc-slider-track {
+            position: absolute; top: 12px; left: 0; right: 0; height: 4px;
+            background: #2a2a3e; border-radius: 2px;
+        }
+        .wc-slider-fill {
+            position: absolute; top: 12px; height: 4px;
+            background: linear-gradient(90deg,#3b82f6 0%,#22c55e 35%,#fbbf24 65%,#ef4444 100%);
+            border-radius: 2px; pointer-events: none;
+        }
+        .wc-slider-wrap input[type=range] {
+            position: absolute; top: 4px; left: 0; width: 100%;
+            -webkit-appearance: none; appearance: none; background: none;
+            pointer-events: none; height: 20px; margin: 0;
+        }
+        .wc-slider-wrap input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none; appearance: none; pointer-events: auto;
+            width: 14px; height: 14px; border-radius: 50%; background: #fff;
+            border: 2px solid #3b82f6; cursor: grab;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+        }
+        .wc-slider-wrap input[type=range]::-moz-range-thumb {
+            pointer-events: auto;
+            width: 14px; height: 14px; border-radius: 50%; background: #fff;
+            border: 2px solid #3b82f6; cursor: grab;
+        }
+        .wc-slider-wrap input[type=range]::-webkit-slider-runnable-track { background: transparent; }
+        .wc-slider-wrap input[type=range]::-moz-range-track { background: transparent; }
+        .wc-slider-wrap input[type=range]:focus { outline: none; }
+        .wc-value-row {
+            display: flex; justify-content: space-between; font-size: 11px;
+            color: #c0d0f0; font-variant-numeric: tabular-nums;
+            font-weight: 600; margin-top: 2px;
+        }
+        .wc-legend {
+            display: flex; align-items: center; gap: 6px;
+            font-size: 9px; color: #7a8aa8; margin-top: 8px;
+        }
+        .wc-legend-bar {
+            flex: 1; height: 8px; border-radius: 2px;
+            background: linear-gradient(90deg,#3b82f6 0%,#22c55e 35%,#fbbf24 65%,#ef4444 100%);
+        }
+        .wc-legend-label { letter-spacing: 0.3px; }
+        .wc-meta {
+            font-size: 10px; color: #6a6a8a; margin-top: 4px;
+        }
         /* Stats footer */
         .sb-stats {
             padding: 12px 16px; border-top: 1px solid #2a2a3e; margin-top: auto;
@@ -323,33 +372,41 @@
             </div>
         </div>
 
-        <!-- NEIGHBORHOOD WEALTH (ZHVI) -->
+        <!-- WEALTH CLOUD (ZHVI heatmap overlay) -->
         <div class="sb-section">
-            <div class="sb-section-title">Neighborhood Wealth</div>
-            <div style="font-size:10px;color:#6a6a8a;margin-bottom:8px;">
-                Filter by Zillow median home value near each comp
+            <div class="sb-section-title">Wealth Cloud</div>
+            <div class="sb-tool" style="padding: 2px 0 6px;">
+                <span class="sb-tool-label">Show heatmap</span>
+                <div class="sb-toggle" id="wealthCloudBtn" title="Toggle the Zillow home-value heatmap overlay"></div>
             </div>
-            <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;">
-                <div style="flex:1;">
-                    <div style="font-size:9px;color:#6a6a8a;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px;">Min</div>
-                    <input type="number" id="zhviMin" class="sb-select" placeholder="Any" style="padding:6px 8px;font-size:11px;" step="50000" min="0">
+            <div id="wealthCloudControls" style="display:none;">
+                <div style="font-size:10px;color:#6a6a8a;margin-bottom:4px;">
+                    Drag the handles to show only ZIPs inside the price range
                 </div>
-                <div style="flex:1;">
-                    <div style="font-size:9px;color:#6a6a8a;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px;">Max</div>
-                    <input type="number" id="zhviMax" class="sb-select" placeholder="Any" style="padding:6px 8px;font-size:11px;" step="50000" min="0">
+                <div class="wc-slider-wrap">
+                    <div class="wc-slider-track"></div>
+                    <div class="wc-slider-fill" id="wcFill"></div>
+                    <input type="range" id="wcMinRange" min="0" max="2000000" step="25000" value="0">
+                    <input type="range" id="wcMaxRange" min="0" max="2000000" step="25000" value="2000000">
+                </div>
+                <div class="wc-value-row">
+                    <span id="wcMinLabel">$0</span>
+                    <span id="wcMaxLabel">$2M+</span>
+                </div>
+                <div class="wc-legend">
+                    <span class="wc-legend-label">Low</span>
+                    <div class="wc-legend-bar"></div>
+                    <span class="wc-legend-label">High</span>
+                </div>
+                <div class="wc-meta" id="wcMeta">Loading market ZIP data...</div>
+                <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:8px;">
+                    <button class="zhvi-preset" data-min="0"       data-max="2000000">All</button>
+                    <button class="zhvi-preset" data-min="0"       data-max="300000">&lt;$300K</button>
+                    <button class="zhvi-preset" data-min="300000"  data-max="500000">$300-500K</button>
+                    <button class="zhvi-preset" data-min="500000"  data-max="750000">$500-750K</button>
+                    <button class="zhvi-preset" data-min="750000"  data-max="2000000">$750K+</button>
                 </div>
             </div>
-            <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;">
-                <button class="zhvi-preset" data-min="0"      data-max="">Any</button>
-                <button class="zhvi-preset" data-min="300000" data-max="">$300K+</button>
-                <button class="zhvi-preset" data-min="500000" data-max="">$500K+</button>
-                <button class="zhvi-preset" data-min="750000" data-max="">$750K+</button>
-                <button class="zhvi-preset" data-min="1000000" data-max="">$1M+</button>
-            </div>
-            <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:#a0a0c0;cursor:pointer;user-select:none;">
-                <input type="checkbox" id="zhviIncludeNull" checked style="margin:0;cursor:pointer;">
-                Include comps with no ZHVI data
-            </label>
         </div>
 
         <!-- TOOLS -->
@@ -422,6 +479,7 @@
     </div>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+    <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
     <script>
         let ALL = [];
         var map, layers, activeLayers, markers, bounds, portfolioGroups, activeYears;
@@ -806,13 +864,6 @@
         function refreshMarkers() {
             const sel = document.getElementById('marketFilter').value;
             const query = document.getElementById('searchBox').value.toLowerCase();
-            const zhviMinEl = document.getElementById('zhviMin');
-            const zhviMaxEl = document.getElementById('zhviMax');
-            const zhviIncludeNullEl = document.getElementById('zhviIncludeNull');
-            const zhviMinVal = zhviMinEl && zhviMinEl.value ? parseFloat(zhviMinEl.value) : null;
-            const zhviMaxVal = zhviMaxEl && zhviMaxEl.value ? parseFloat(zhviMaxEl.value) : null;
-            const zhviIncludeNull = zhviIncludeNullEl ? zhviIncludeNullEl.checked : true;
-            const zhviActive = (zhviMinVal !== null) || (zhviMaxVal !== null);
             let visible = 0;
             markers.forEach(({ marker, comp }) => {
                 const byLayer = activeLayers.has(comp.l);
@@ -820,17 +871,7 @@
                 const byYear = !comp.yr || activeYears.has(comp.yr);
                 const text = `${comp.n} ${comp.a} ${comp.m} ${comp.sm} ${comp.tenant||''} ${comp.landlord||''}`.toLowerCase();
                 const bySearch = !query || text.includes(query);
-                let byZhvi = true;
-                if (zhviActive || !zhviIncludeNull) {
-                    const hasZhvi = comp.zhvi && comp.zhvi > 0;
-                    if (!hasZhvi) {
-                        byZhvi = zhviIncludeNull;
-                    } else {
-                        if (zhviMinVal !== null && comp.zhvi < zhviMinVal) byZhvi = false;
-                        if (zhviMaxVal !== null && comp.zhvi > zhviMaxVal) byZhvi = false;
-                    }
-                }
-                if (byLayer && byMarket && byYear && bySearch && byZhvi) {
+                if (byLayer && byMarket && byYear && bySearch) {
                     layers[comp.l].addLayer(marker);
                     visible++;
                 } else {
@@ -843,30 +884,141 @@
         document.getElementById('searchBox').addEventListener('input', refreshMarkers);
         document.getElementById('marketFilter').addEventListener('change', refreshMarkers);
 
-        // ZHVI filter event wiring
-        (function wireZhviFilter() {
-            const minEl = document.getElementById('zhviMin');
-            const maxEl = document.getElementById('zhviMax');
-            const nullEl = document.getElementById('zhviIncludeNull');
-            const presets = document.querySelectorAll('.zhvi-preset');
-            if (!minEl) return;
-            function clearPresetActive() {
-                presets.forEach(b => b.classList.remove('active'));
+        // ==========================================
+        // WEALTH CLOUD — Zillow ZHVI heatmap overlay
+        // ==========================================
+        (function wealthCloud() {
+            const toggleBtn  = document.getElementById('wealthCloudBtn');
+            const controls   = document.getElementById('wealthCloudControls');
+            const minRange   = document.getElementById('wcMinRange');
+            const maxRange   = document.getElementById('wcMaxRange');
+            const minLabel   = document.getElementById('wcMinLabel');
+            const maxLabel   = document.getElementById('wcMaxLabel');
+            const fillBar    = document.getElementById('wcFill');
+            const metaLabel  = document.getElementById('wcMeta');
+            const presets    = document.querySelectorAll('#wealthCloudControls .zhvi-preset');
+            if (!toggleBtn) return;
+
+            let overlayPoints = null;   // [[lat,lng,zhvi], ...]
+            let heatLayer = null;
+            let visible = false;
+            let overlayDate = '';
+
+            const SLIDER_MIN = 0;
+            const SLIDER_MAX = 2000000;
+            // Overall normalization ceiling for heatmap intensity. ZHVI above this
+            // saturates to 1.0 so the color scale doesn't get crushed by a few outliers.
+            const INTENSITY_CEIL = 1500000;
+
+            function fmtMoney(v) {
+                if (v >= 1000000) return '$' + (v / 1000000).toFixed(v % 1000000 === 0 ? 0 : 1) + 'M';
+                if (v >= 1000)    return '$' + Math.round(v / 1000) + 'K';
+                return '$' + v;
             }
-            minEl.addEventListener('input', () => { clearPresetActive(); refreshMarkers(); });
-            maxEl.addEventListener('input', () => { clearPresetActive(); refreshMarkers(); });
-            nullEl.addEventListener('change', refreshMarkers);
+
+            function updateFillBar() {
+                const mn = +minRange.value;
+                const mx = +maxRange.value;
+                const lo = ((mn - SLIDER_MIN) / (SLIDER_MAX - SLIDER_MIN)) * 100;
+                const hi = ((mx - SLIDER_MIN) / (SLIDER_MAX - SLIDER_MIN)) * 100;
+                fillBar.style.left  = lo + '%';
+                fillBar.style.right = (100 - hi) + '%';
+                minLabel.textContent = fmtMoney(mn);
+                maxLabel.textContent = mx >= SLIDER_MAX ? fmtMoney(mx) + '+' : fmtMoney(mx);
+            }
+
+            function buildHeat() {
+                if (!overlayPoints) return;
+                const mn = +minRange.value;
+                const mx = +maxRange.value;
+                const filtered = [];
+                for (const p of overlayPoints) {
+                    const v = p[2];
+                    if (v < mn || v > mx) continue;
+                    // Normalize to 0..1 for intensity. Floor at 0.15 so even
+                    // low-value ZIPs show up on the heatmap.
+                    const intensity = Math.max(0.15, Math.min(1, v / INTENSITY_CEIL));
+                    filtered.push([p[0], p[1], intensity]);
+                }
+                if (heatLayer) map.removeLayer(heatLayer);
+                heatLayer = L.heatLayer(filtered, {
+                    radius: 28,
+                    blur: 35,
+                    maxZoom: 12,
+                    minOpacity: 0.35,
+                    gradient: {
+                        0.00: '#3b82f6', // blue (low)
+                        0.35: '#22c55e', // green
+                        0.65: '#fbbf24', // yellow
+                        1.00: '#ef4444'  // red (high)
+                    }
+                });
+                if (visible) heatLayer.addTo(map);
+                metaLabel.textContent = `${filtered.length.toLocaleString()} of ${overlayPoints.length.toLocaleString()} ZIPs shown` + (overlayDate ? ` \u2022 ${overlayDate}` : '');
+            }
+
+            function clearPresetActive() { presets.forEach(b => b.classList.remove('active')); }
+
+            async function loadOverlay() {
+                try {
+                    const url = 'zhvi_overlay.json?_=' + Date.now();
+                    const res = await fetch(url);
+                    if (!res.ok) throw new Error('HTTP ' + res.status);
+                    const data = await res.json();
+                    overlayPoints = data.points || [];
+                    overlayDate   = data.updated || '';
+                    metaLabel.textContent = `${overlayPoints.length.toLocaleString()} ZIPs loaded` + (overlayDate ? ` \u2022 ${overlayDate}` : '');
+                    buildHeat();
+                } catch (err) {
+                    metaLabel.textContent = 'zhvi_overlay.json not found — run refresh_zhvi.py';
+                    metaLabel.style.color = '#f87171';
+                    console.warn('Wealth cloud overlay load failed:', err);
+                }
+            }
+
+            toggleBtn.addEventListener('click', () => {
+                visible = !visible;
+                toggleBtn.classList.toggle('on', visible);
+                controls.style.display = visible ? 'block' : 'none';
+                if (visible) {
+                    if (overlayPoints === null) {
+                        loadOverlay();
+                    } else {
+                        buildHeat();
+                    }
+                } else if (heatLayer) {
+                    map.removeLayer(heatLayer);
+                }
+            });
+
+            // Enforce min <= max on range drag
+            minRange.addEventListener('input', () => {
+                if (+minRange.value > +maxRange.value) minRange.value = maxRange.value;
+                clearPresetActive();
+                updateFillBar();
+                buildHeat();
+            });
+            maxRange.addEventListener('input', () => {
+                if (+maxRange.value < +minRange.value) maxRange.value = minRange.value;
+                clearPresetActive();
+                updateFillBar();
+                buildHeat();
+            });
+
             presets.forEach(btn => {
                 btn.addEventListener('click', () => {
-                    const mn = btn.getAttribute('data-min');
-                    const mx = btn.getAttribute('data-max');
-                    minEl.value = (mn && mn !== '0') ? mn : '';
-                    maxEl.value = mx || '';
+                    const mn = parseInt(btn.getAttribute('data-min'), 10) || 0;
+                    const mx = parseInt(btn.getAttribute('data-max'), 10) || SLIDER_MAX;
+                    minRange.value = Math.max(SLIDER_MIN, Math.min(SLIDER_MAX, mn));
+                    maxRange.value = Math.max(SLIDER_MIN, Math.min(SLIDER_MAX, mx));
                     clearPresetActive();
                     btn.classList.add('active');
-                    refreshMarkers();
+                    updateFillBar();
+                    buildHeat();
                 });
             });
+
+            updateFillBar();
         })();
 
         // Initial count

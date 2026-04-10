@@ -43,10 +43,22 @@ ZCTA_URL = (
 # Script lives inside cofe-comp-map/, so data.json is next to it.
 SCRIPT_DIR = Path(__file__).resolve().parent
 DATA_JSON = SCRIPT_DIR / "data.json"
+OVERLAY_JSON = SCRIPT_DIR / "zhvi_overlay.json"
 CACHE_DIR = SCRIPT_DIR / ".zhvi_cache"
 
 ZIP_RE = re.compile(r"\b(\d{5})(?:-\d{4})?\b")
 MAX_FALLBACK_MILES = 3.0
+
+# Target-market bounding boxes for the wealth-cloud overlay.
+# (lat_min, lat_max, lng_min, lng_max) — padded a bit beyond CLAUDE.md values
+# to catch suburban ZIPs on the edges of each metro.
+MARKET_BOXES = {
+    "Houston":     (28.9, 30.6, -96.4, -94.3),
+    "DFW":         (31.9, 33.7, -97.9, -96.0),
+    "Miami":       (24.9, 27.6, -81.2, -79.4),
+    "San Antonio": (28.9, 30.1, -99.1, -97.4),
+    "Austin":      (29.7, 31.1, -98.6, -96.9),
+}
 
 
 def log(msg):
@@ -203,6 +215,36 @@ def enrich(entries, zhvi, centroids):
     return stats
 
 
+def build_overlay(zhvi, centroids):
+    """
+    Build a compact overlay payload: all ZIPs inside any MARKET_BOXES that have
+    both a ZHVI value and a centroid. Output shape is a list of 3-element arrays
+    [lat, lng, zhvi_int] to keep the JSON small — Leaflet.heat consumes this
+    directly with minor transformation.
+    """
+    points = []
+    per_market = {m: 0 for m in MARKET_BOXES}
+    # Pre-flatten boxes for a fast in-any-box test.
+    for z, (lat, lng) in centroids.items():
+        if z not in zhvi:
+            continue
+        for name, (la_min, la_max, lo_min, lo_max) in MARKET_BOXES.items():
+            if la_min <= lat <= la_max and lo_min <= lng <= lo_max:
+                points.append([round(lat, 5), round(lng, 5), int(round(zhvi[z]))])
+                per_market[name] += 1
+                break
+    return points, per_market
+
+
+def write_overlay(points, latest_date):
+    payload = {
+        "updated": latest_date,
+        "points": points,
+    }
+    with open(OVERLAY_JSON, "w", encoding="utf-8") as f:
+        json.dump(payload, f, separators=(",", ":"))
+
+
 def main():
     force = "--force" in sys.argv
 
@@ -220,21 +262,33 @@ def main():
         entries = json.load(f)
     log(f"  loaded {len(entries):,} comps")
 
-    log("Enriching...")
+    log("Enriching comps with ZHVI...")
     stats = enrich(entries, zhvi, centroids)
 
     with open(DATA_JSON, "w", encoding="utf-8") as f:
         json.dump(entries, f, separators=(",", ":"))
 
+    log("Building market-wide ZHVI overlay...")
+    overlay_points, per_market = build_overlay(zhvi, centroids)
+    write_overlay(overlay_points, latest_date)
+    overlay_size = OVERLAY_JSON.stat().st_size
+
     log("")
     log("=" * 50)
     log(f"  ZHVI latest month:      {latest_date}")
+    log("  --- comp enrichment ---")
     log(f"  direct ZIP match:       {stats['direct']:>6,}")
     log(f"  nearest ZIP (<3 miles): {stats['nearest']:>6,}")
     log(f"  no nearby ZIP w/ZHVI:   {stats['miss']:>6,}")
     log(f"  no coordinates at all:  {stats['no_coord']:>6,}")
+    log("  --- market overlay ---")
+    log(f"  overlay ZIPs total:     {len(overlay_points):>6,}")
+    for m, n in per_market.items():
+        log(f"    {m:<13}        {n:>6,}")
+    log(f"  overlay file size:      {overlay_size:>6,} bytes")
     log("=" * 50)
     log(f"\n{DATA_JSON.name} updated with ZHVI values as of {latest_date}")
+    log(f"{OVERLAY_JSON.name} written with {len(overlay_points):,} market ZIP points")
 
 
 if __name__ == "__main__":
