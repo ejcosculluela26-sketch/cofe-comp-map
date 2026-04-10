@@ -86,13 +86,50 @@
             background: #fff; transition: transform 0.2s;
         }
         .sb-toggle.on::after { transform: translateX(18px); }
-        /* Year filter in sidebar */
-        .sb-year-wrap { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
-        .sb-year-btns { display: flex; gap: 4px; margin-bottom: 6px; }
-        .yr-pill { padding: 3px 8px; font-size: 10px; border-radius: 999px; border: 1px solid #3a3a5c; background: #16162a; color: #6a6a8a; cursor: pointer; user-select: none; transition: all 0.15s; }
-        .yr-pill.active { background: #2b6cb0; border-color: #63b3ed; color: #fff; }
-        .yr-btn { padding: 3px 8px; font-size: 10px; border-radius: 4px; border: 1px solid #3a3a5c; background: transparent; color: #63b3ed; cursor: pointer; }
-        .yr-btn:hover { background: #1e1e3e; }
+        /* Year multi-select dropdown */
+        .yr-dropdown-wrap { position: relative; }
+        .yr-dropdown-btn {
+            width: 100%; padding: 7px 30px 7px 10px; font-size: 12px; border-radius: 6px;
+            border: 1px solid #3a3a5c; background: #16162a; color: #e0e0e0;
+            cursor: pointer; text-align: left; position: relative; appearance: none;
+        }
+        .yr-dropdown-btn::after {
+            content: '\25BC'; position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+            font-size: 8px; color: #6a6a8a; pointer-events: none;
+        }
+        .yr-dropdown-btn:hover { border-color: #5a5a7c; }
+        .yr-dropdown-menu {
+            display: none; position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+            background: #16162a; border: 1px solid #3a3a5c; border-radius: 6px;
+            max-height: 220px; overflow-y: auto; z-index: 1100; padding: 4px 0;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+        }
+        .yr-dropdown-menu.open { display: block; }
+        .yr-dropdown-menu::-webkit-scrollbar { width: 4px; }
+        .yr-dropdown-menu::-webkit-scrollbar-thumb { background: #3a3a5c; border-radius: 4px; }
+        .yr-dd-actions { display: flex; gap: 4px; padding: 4px 8px 6px; border-bottom: 1px solid #2a2a3e; }
+        .yr-dd-action {
+            padding: 3px 8px; font-size: 10px; border-radius: 4px;
+            border: 1px solid #3a3a5c; background: transparent; color: #63b3ed;
+            cursor: pointer; flex: 1; text-align: center;
+        }
+        .yr-dd-action:hover { background: #1e1e3e; }
+        .yr-dd-item {
+            display: flex; align-items: center; gap: 8px; padding: 5px 10px;
+            cursor: pointer; font-size: 12px; color: #c0c0d0; transition: background 0.1s;
+        }
+        .yr-dd-item:hover { background: #1e1e3e; }
+        .yr-dd-check {
+            width: 14px; height: 14px; border-radius: 3px; border: 1px solid #4a4a6c;
+            background: transparent; display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0; transition: all 0.15s;
+        }
+        .yr-dd-item.checked .yr-dd-check {
+            background: #3b82f6; border-color: #3b82f6;
+        }
+        .yr-dd-item.checked .yr-dd-check::after {
+            content: '\2713'; font-size: 10px; color: #fff;
+        }
         /* Stats footer */
         .sb-stats {
             padding: 12px 16px; border-top: 1px solid #2a2a3e; margin-top: auto;
@@ -131,15 +168,16 @@
             display: flex; flex-direction: column;
         }
         #detail-panel.open { height: 50vh; overflow: visible; }
-        /* Overlay close button */
+        /* Overlay close button — always on top */
         #detail-panel-close {
-            position: absolute; top: 10px; right: 14px; z-index: 910;
-            background: rgba(26,26,46,0.8); border: 1px solid #3a4a6c; color: #a8b3cc;
-            font-size: 18px; width: 32px; height: 32px; border-radius: 8px;
+            position: absolute; top: 10px; right: 14px; z-index: 920;
+            background: rgba(26,26,46,0.7); border: 1px solid rgba(255,255,255,0.2); color: #e0e0e0;
+            font-size: 20px; width: 34px; height: 34px; border-radius: 8px;
             cursor: pointer; display: flex; align-items: center; justify-content: center;
-            transition: all 0.15s; backdrop-filter: blur(4px);
+            transition: all 0.15s; backdrop-filter: blur(6px);
         }
         #detail-panel-close:hover { background: #ef4444; color: #fff; border-color: #ef4444; }
+        /* Normal detail mode header */
         #detail-panel-header {
             display: flex; align-items: center; padding: 12px 50px 0 16px; flex-shrink: 0;
         }
@@ -158,9 +196,29 @@
         }
         .detail-tab:hover { color: #c0d0f0; }
         .detail-tab.active { color: #fff; border-bottom-color: #3b82f6; }
-        #detail-tab-content { flex: 1; overflow-y: auto; padding: 12px 16px 16px; }
-        .tab-pane { display: none; }
-        .tab-pane.active { display: block; }
+        #detail-tab-content { flex: 1; overflow-y: auto; padding: 12px 16px 16px; min-height: 0; }
+        .tab-pane { display: none; height: 100%; }
+        .tab-pane.active { display: flex; flex-direction: column; }
+        /* === STREET VIEW FULL-BLEED MODE === */
+        #detail-panel.sv-mode #detail-panel-header,
+        #detail-panel.sv-mode #detail-tabs { display: none; }
+        #detail-panel.sv-mode #detail-tab-content { padding: 0; overflow: hidden; }
+        #detail-panel.sv-mode .tab-pane.active { height: 100%; }
+        #detail-panel.sv-mode .sv-iframe-wrap { height: 100%; min-height: unset; border-radius: 0; border: none; }
+        /* SV overlay label */
+        .sv-overlay-label {
+            position: absolute; top: 10px; left: 14px; z-index: 915;
+            background: rgba(26,26,46,0.7); backdrop-filter: blur(6px);
+            padding: 6px 14px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.15);
+        }
+        .sv-overlay-label h3 { margin: 0; font-size: 13px; color: #fff; font-weight: 600; }
+        .sv-overlay-label .sv-coords { font-size: 10px; color: #a0a0c0; margin-top: 2px; }
+        .sv-overlay-label a { color: #fbbf24; font-size: 10px; text-decoration: none; }
+        .sv-overlay-label a:hover { text-decoration: underline; }
+        /* Location tab full-bleed SV */
+        .loc-tab-sv { display: flex; flex-direction: column; height: 100%; }
+        .loc-tab-sv .loc-info { padding: 0 0 8px; flex-shrink: 0; }
+        .loc-tab-sv .sv-iframe-wrap { flex: 1; min-height: 0; }
 
         /* ===== SHARED STYLES ===== */
         .badge { display: inline-block; padding: 4px 10px; margin-right: 6px; margin-bottom: 8px; font-size: 11px; border-radius: 999px; background: #193061; color: #e4ebff; }
@@ -231,11 +289,16 @@
         <!-- YEAR FILTER -->
         <div class="sb-section">
             <div class="sb-section-title">Year Filter</div>
-            <div class="sb-year-btns">
-                <button class="yr-btn" id="yrAll">All</button>
-                <button class="yr-btn" id="yrNone">Clear</button>
+            <div class="yr-dropdown-wrap" id="yearDropdownWrap">
+                <button class="yr-dropdown-btn" id="yearDropdownBtn">All Years</button>
+                <div class="yr-dropdown-menu" id="yearDropdownMenu">
+                    <div class="yr-dd-actions">
+                        <button class="yr-dd-action" id="yrAll">Select All</button>
+                        <button class="yr-dd-action" id="yrNone">Clear All</button>
+                    </div>
+                    <div id="yearCheckboxes"></div>
+                </div>
             </div>
-            <div class="sb-year-wrap" id="yearPills"></div>
         </div>
 
         <!-- TOOLS -->
@@ -401,11 +464,20 @@
 
         // Close panel
         document.getElementById('detail-panel-close').addEventListener('click', () => {
-            document.getElementById('detail-panel').classList.remove('open');
+            const p = document.getElementById('detail-panel');
+            p.classList.remove('open', 'sv-mode');
+            const lbl = p.querySelector('.sv-overlay-label');
+            if (lbl) lbl.remove();
             map.invalidateSize({ animate: true });
         });
 
         function setDetailPanel(comp) {
+            const panel = document.getElementById('detail-panel');
+            // Exit SV full-bleed mode, remove overlay label
+            panel.classList.remove('sv-mode');
+            const oldLabel = panel.querySelector('.sv-overlay-label');
+            if (oldLabel) oldLabel.remove();
+
             const lc = layerConfig[comp.l] || {};
             const layerLabel = (lc.name || comp.l).toUpperCase();
 
@@ -513,25 +585,22 @@
             // === LOCATION TAB ===
             const svUrl = `https://www.google.com/maps/embed/v1/streetview?key=${GEOCODE_KEY}&location=${comp.lat},${comp.lng}&heading=0&pitch=0&fov=90`;
             document.getElementById('tab-location').innerHTML = `
-                <div class="detail-grid">
-                    <div class="detail-label">Latitude</div><div class="detail-label">Longitude</div>
-                    <div class="detail-value">${comp.lat.toFixed(6)}</div><div class="detail-value">${comp.lng.toFixed(6)}</div>
-                    <div class="detail-full"><div class="detail-label">Address</div><div class="detail-value">${comp.a || 'N/A'}</div></div>
-                </div>
-                <div style="margin-top:12px;">
-                    <div class="detail-label" style="margin-bottom:6px;">Street View</div>
+                <div class="loc-tab-sv">
+                    <div class="loc-info">
+                        <div class="detail-grid" style="margin-top:0;">
+                            <div class="detail-label">Latitude</div><div class="detail-label">Longitude</div>
+                            <div class="detail-value">${comp.lat.toFixed(6)}</div><div class="detail-value">${comp.lng.toFixed(6)}</div>
+                        </div>
+                        <a href="https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${comp.lat},${comp.lng}" target="_blank" rel="noopener"
+                           style="color:#fbbf24;font-size:11px;text-decoration:none;">Open in Google Street View &rarr;</a>
+                    </div>
                     <div class="sv-iframe-wrap">
                         <iframe src="${svUrl}" allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
                     </div>
                 </div>
-                <div style="margin-top:10px;">
-                    <a href="https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${comp.lat},${comp.lng}" target="_blank" rel="noopener"
-                       style="color:#fbbf24;font-size:12px;text-decoration:underline;">Open in Google Street View &rarr;</a>
-                </div>
             `;
 
             // Open panel and reset to Details tab
-            const panel = document.getElementById('detail-panel');
             if (!panel.classList.contains('open')) {
                 panel.classList.add('open');
                 setTimeout(() => map.invalidateSize({ animate: true }), 350);
@@ -589,34 +658,70 @@
             map.fitBounds(bounds, { padding: [20, 20] });
         }
 
-        // Year pills
+        // Year multi-select dropdown
         const years = [...new Set(ALL.map(c => c.yr).filter(y => y))].sort((a, b) => b - a);
         const activeYears = new Set(years);
-        const pillContainer = document.getElementById('yearPills');
+        const yearBtn = document.getElementById('yearDropdownBtn');
+        const yearMenu = document.getElementById('yearDropdownMenu');
+        const yearCheckboxes = document.getElementById('yearCheckboxes');
+
+        function updateYearBtnLabel() {
+            if (activeYears.size === years.length || activeYears.size === 0 && years.length === 0) {
+                yearBtn.textContent = 'All Years';
+            } else if (activeYears.size === 0) {
+                yearBtn.textContent = 'No Years Selected';
+            } else if (activeYears.size <= 3) {
+                yearBtn.textContent = [...activeYears].sort((a, b) => b - a).join(', ');
+            } else {
+                yearBtn.textContent = `${activeYears.size} of ${years.length} years`;
+            }
+        }
 
         years.forEach(y => {
-            const pill = document.createElement('span');
-            pill.className = 'yr-pill active';
-            pill.textContent = y;
-            pill.dataset.year = y;
-            pill.addEventListener('click', () => {
-                if (activeYears.has(y)) { activeYears.delete(y); pill.classList.remove('active'); }
-                else { activeYears.add(y); pill.classList.add('active'); }
+            const item = document.createElement('div');
+            item.className = 'yr-dd-item checked';
+            item.dataset.year = y;
+            item.innerHTML = `<span class="yr-dd-check"></span><span>${y}</span>`;
+            item.addEventListener('click', () => {
+                if (activeYears.has(y)) {
+                    activeYears.delete(y);
+                    item.classList.remove('checked');
+                } else {
+                    activeYears.add(y);
+                    item.classList.add('checked');
+                }
+                updateYearBtnLabel();
                 refreshMarkers();
             });
-            pillContainer.appendChild(pill);
+            yearCheckboxes.appendChild(item);
+        });
+
+        // Toggle dropdown open/close
+        yearBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            yearMenu.classList.toggle('open');
+        });
+        // Close on outside click
+        document.addEventListener('click', (e) => {
+            if (!document.getElementById('yearDropdownWrap').contains(e.target)) {
+                yearMenu.classList.remove('open');
+            }
         });
 
         document.getElementById('yrAll').addEventListener('click', () => {
             years.forEach(y => activeYears.add(y));
-            pillContainer.querySelectorAll('.yr-pill').forEach(p => p.classList.add('active'));
+            yearCheckboxes.querySelectorAll('.yr-dd-item').forEach(i => i.classList.add('checked'));
+            updateYearBtnLabel();
             refreshMarkers();
         });
         document.getElementById('yrNone').addEventListener('click', () => {
             activeYears.clear();
-            pillContainer.querySelectorAll('.yr-pill').forEach(p => p.classList.remove('active'));
+            yearCheckboxes.querySelectorAll('.yr-dd-item').forEach(i => i.classList.remove('checked'));
+            updateYearBtnLabel();
             refreshMarkers();
         });
+
+        updateYearBtnLabel();
 
         function refreshMarkers() {
             const sel = document.getElementById('marketFilter').value;
@@ -882,6 +987,12 @@
                 ['Legal Description', legal],
             ].filter(([, v]) => v != null && v !== '' && v !== 'null');
 
+            // Exit SV mode, clean up overlay
+            const panel = document.getElementById('detail-panel');
+            panel.classList.remove('sv-mode');
+            const oldSvLabel = panel.querySelector('.sv-overlay-label');
+            if (oldSvLabel) oldSvLabel.remove();
+
             // Populate panel header
             document.getElementById('detail-panel-title').textContent = 'Parcel Query Result';
             document.getElementById('detail-panel-badges').innerHTML = `<span class="badge" style="background:#00e5ff30;color:#00e5ff;border:1px solid #00e5ff80">${county.name}</span>`;
@@ -898,9 +1009,6 @@
             `;
             document.getElementById('tab-notes').innerHTML = '<p style="color:#8aa0cc;">No notes for parcel queries.</p>';
             document.getElementById('tab-location').innerHTML = '<p style="color:#8aa0cc;">Location data shown above.</p>';
-
-            // Open panel
-            const panel = document.getElementById('detail-panel');
             if (!panel.classList.contains('open')) {
                 panel.classList.add('open');
                 setTimeout(() => map.invalidateSize({ animate: true }), 350);
@@ -979,29 +1087,35 @@
 
         function openStreetViewPanel(lat, lng) {
             const svUrl = `https://www.google.com/maps/embed/v1/streetview?key=${GEOCODE_KEY}&location=${lat},${lng}&heading=0&pitch=0&fov=90`;
+            const panel = document.getElementById('detail-panel');
 
-            document.getElementById('detail-panel-title').textContent = 'Street View';
-            document.getElementById('detail-panel-badges').innerHTML = `<span class="badge" style="background:#fbbf2440;color:#fbbf24;border:1px solid #fbbf2480">STREET VIEW</span>`;
+            // Enable full-bleed SV mode
+            panel.classList.add('sv-mode');
 
-            document.getElementById('tab-details').innerHTML = `
-                <div class="detail-grid">
-                    <div class="detail-label">Latitude</div><div class="detail-label">Longitude</div>
-                    <div class="detail-value">${lat.toFixed(6)}</div><div class="detail-value">${lng.toFixed(6)}</div>
-                </div>
-                <div style="margin-top:10px;">
-                    <a href="https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${lat},${lng}" target="_blank" rel="noopener"
-                       style="color:#fbbf24;font-size:12px;text-decoration:underline;">Open full Google Street View &rarr;</a>
-                </div>
-            `;
-            document.getElementById('tab-notes').innerHTML = '<p style="color:#8aa0cc;">Click a property marker for notes.</p>';
+            // Remove any previous overlay label
+            const oldLabel = panel.querySelector('.sv-overlay-label');
+            if (oldLabel) oldLabel.remove();
+
+            // Full-bleed iframe in the location tab
+            document.getElementById('tab-details').innerHTML = '';
+            document.getElementById('tab-notes').innerHTML = '';
             document.getElementById('tab-location').innerHTML = `
-                <div class="sv-iframe-wrap" style="height:100%;min-height:220px;">
+                <div class="sv-iframe-wrap">
                     <iframe src="${svUrl}" allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
                 </div>
             `;
 
-            // Open panel and switch to Location tab (to show street view)
-            const panel = document.getElementById('detail-panel');
+            // Add overlay label with coords and link
+            const label = document.createElement('div');
+            label.className = 'sv-overlay-label';
+            label.innerHTML = `
+                <h3>Street View</h3>
+                <div class="sv-coords">${lat.toFixed(6)}, ${lng.toFixed(6)}</div>
+                <a href="https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${lat},${lng}" target="_blank" rel="noopener">Open in Google Maps &rarr;</a>
+            `;
+            panel.appendChild(label);
+
+            // Open panel and show location tab (full-bleed)
             if (!panel.classList.contains('open')) {
                 panel.classList.add('open');
                 setTimeout(() => map.invalidateSize({ animate: true }), 350);
