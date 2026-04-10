@@ -1,0 +1,40 @@
+name: Monthly ZHVI Refresh
+
+# Runs refresh_zhvi.py on the 25th of every month at 14:00 UTC (9am CT).
+# Zillow publishes new ZHVI data on the 3rd Thursday of each month, so the 25th
+# is a safe date to always pick up the latest month. You can also trigger
+# manually from the Actions tab via "Run workflow".
+
+on:
+  schedule:
+    - cron: "0 14 25 * *"
+  workflow_dispatch:
+
+jobs:
+  refresh-zhvi:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run refresh_zhvi.py (force re-download)
+        run: python3 refresh_zhvi.py --force
+
+      - name: Commit updated data.json if changed
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet -- data.json; then
+            echo "data.json unchanged — nothing to commit."
+          else
+            git add data.json
+            git commit -m "chore: monthly ZHVI refresh ($(date -u +%Y-%m-%d))"
+            git push
+          fi
