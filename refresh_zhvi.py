@@ -50,14 +50,23 @@ ZIP_RE = re.compile(r"\b(\d{5})(?:-\d{4})?\b")
 MAX_FALLBACK_MILES = 3.0
 
 # Target-market bounding boxes for the wealth-cloud overlay.
-# (lat_min, lat_max, lng_min, lng_max) — padded a bit beyond CLAUDE.md values
-# to catch suburban ZIPs on the edges of each metro.
+# (lat_min, lat_max, lng_min, lng_max) — padded a bit beyond metro core
+# to catch suburban ZIPs on the edges of each market.
+#
+# South Florida: expanded to cover the full peninsula south of ~Vero Beach,
+# including the Gulf coast (Naples, Fort Myers, Marco Island) which was
+# incorrectly excluded in earlier versions — that's why the SFL heatmap
+# looked patchy / east-coast-only.
 MARKET_BOXES = {
-    "Houston":     (28.9, 30.6, -96.4, -94.3),
-    "DFW":         (31.9, 33.7, -97.9, -96.0),
-    "Miami":       (24.9, 27.6, -81.2, -79.4),
-    "San Antonio": (28.9, 30.1, -99.1, -97.4),
-    "Austin":      (29.7, 31.1, -98.6, -96.9),
+    "Houston":       (28.9, 30.6, -96.4, -94.3),
+    "DFW":           (31.9, 33.7, -97.9, -96.0),
+    "San Antonio":   (28.9, 30.1, -99.1, -97.4),
+    "Austin":        (29.7, 31.1, -98.6, -96.9),
+    "South Florida": (24.4, 27.8, -82.3, -79.8),
+    "Orlando":       (28.1, 29.1, -81.9, -80.7),
+    "Tampa":         (27.2, 28.6, -83.1, -81.8),
+    "Atlanta":       (33.1, 34.4, -85.1, -83.6),
+    "Charlotte":     (34.8, 35.7, -81.3, -80.3),
 }
 
 
@@ -218,28 +227,45 @@ def enrich(entries, zhvi, centroids):
 def build_overlay(zhvi, centroids):
     """
     Build a compact overlay payload: all ZIPs inside any MARKET_BOXES that have
-    both a ZHVI value and a centroid. Output shape is a list of 3-element arrays
-    [lat, lng, zhvi_int] to keep the JSON small — Leaflet.heat consumes this
-    directly with minor transformation.
+    both a ZHVI value and a centroid. Output shape is a list of 4-element arrays
+    [lat, lng, zhvi_int, zip_str] so the frontend can render a heatmap AND a
+    debug dots mode with clickable tooltips.
     """
     points = []
-    per_market = {m: 0 for m in MARKET_BOXES}
-    # Pre-flatten boxes for a fast in-any-box test.
+    per_market = {m: [] for m in MARKET_BOXES}  # list of (zip, lat, lng, value)
     for z, (lat, lng) in centroids.items():
         if z not in zhvi:
             continue
         for name, (la_min, la_max, lo_min, lo_max) in MARKET_BOXES.items():
             if la_min <= lat <= la_max and lo_min <= lng <= lo_max:
-                points.append([round(lat, 5), round(lng, 5), int(round(zhvi[z]))])
-                per_market[name] += 1
+                v = int(round(zhvi[z]))
+                points.append([round(lat, 5), round(lng, 5), v, z])
+                per_market[name].append((z, lat, lng, v))
                 break
     return points, per_market
 
 
-def write_overlay(points, latest_date):
+def diagnostic_log(per_market):
+    """Log top/bottom ZIPs per market so we can spot-check the heatmap against reality."""
+    for name, rows in per_market.items():
+        if not rows:
+            log(f"  [{name}] NO ZIPs in box — check bounding box!")
+            continue
+        rows_sorted = sorted(rows, key=lambda r: r[3], reverse=True)
+        top = rows_sorted[:5]
+        bot = rows_sorted[-5:]
+        n = len(rows_sorted)
+        avg = sum(r[3] for r in rows_sorted) / n
+        log(f"  [{name}] {n} ZIPs, avg ${avg:,.0f}")
+        log(f"    top 5:    " + ", ".join(f"{r[0]} (${r[3]:,})" for r in top))
+        log(f"    bottom 5: " + ", ".join(f"{r[0]} (${r[3]:,})" for r in bot))
+
+
+def write_overlay(points, latest_date, market_boxes):
     payload = {
         "updated": latest_date,
         "points": points,
+        "boxes": {name: list(box) for name, box in market_boxes.items()},
     }
     with open(OVERLAY_JSON, "w", encoding="utf-8") as f:
         json.dump(payload, f, separators=(",", ":"))
@@ -270,11 +296,11 @@ def main():
 
     log("Building market-wide ZHVI overlay...")
     overlay_points, per_market = build_overlay(zhvi, centroids)
-    write_overlay(overlay_points, latest_date)
+    write_overlay(overlay_points, latest_date, MARKET_BOXES)
     overlay_size = OVERLAY_JSON.stat().st_size
 
     log("")
-    log("=" * 50)
+    log("=" * 60)
     log(f"  ZHVI latest month:      {latest_date}")
     log("  --- comp enrichment ---")
     log(f"  direct ZIP match:       {stats['direct']:>6,}")
@@ -283,11 +309,15 @@ def main():
     log(f"  no coordinates at all:  {stats['no_coord']:>6,}")
     log("  --- market overlay ---")
     log(f"  overlay ZIPs total:     {len(overlay_points):>6,}")
-    for m, n in per_market.items():
-        log(f"    {m:<13}        {n:>6,}")
+    for m, rows in per_market.items():
+        log(f"    {m:<15}      {len(rows):>6,}")
     log(f"  overlay file size:      {overlay_size:>6,} bytes")
-    log("=" * 50)
-    log(f"\n{DATA_JSON.name} updated with ZHVI values as of {latest_date}")
+    log("=" * 60)
+    log("")
+    log("Per-market diagnostic (spot-check these against reality):")
+    diagnostic_log(per_market)
+    log("")
+    log(f"{DATA_JSON.name} updated with ZHVI values as of {latest_date}")
     log(f"{OVERLAY_JSON.name} written with {len(overlay_points):,} market ZIP points")
 
 

@@ -188,6 +188,22 @@
         .wc-meta {
             font-size: 10px; color: #6a6a8a; margin-top: 4px;
         }
+        /* Mode switch (heatmap vs debug dots) */
+        .wc-mode-row {
+            display: flex; gap: 4px; margin-top: 8px;
+        }
+        .wc-mode-btn {
+            flex: 1; padding: 5px 6px; font-size: 10px; border-radius: 4px;
+            border: 1px solid #3a3a5c; background: #16162a; color: #c0d0f0;
+            cursor: pointer; font-weight: 600; transition: all 0.15s;
+            font-family: inherit;
+        }
+        .wc-mode-btn:hover { background: #1e1e3e; }
+        .wc-mode-btn.active { background: #2b5dbc; border-color: #63b3ed; color: #fff; }
+        /* ZHVI dot popups */
+        .zhvi-dot-popup { font-size: 12px; }
+        .zhvi-dot-popup .zdp-zip { font-weight: 700; color: #fff; font-size: 13px; }
+        .zhvi-dot-popup .zdp-val { color: #4ade80; font-weight: 700; margin-top: 2px; }
         /* Stats footer */
         .sb-stats {
             padding: 12px 16px; border-top: 1px solid #2a2a3e; margin-top: auto;
@@ -405,6 +421,10 @@
                     <button class="zhvi-preset" data-min="300000"  data-max="500000">$300-500K</button>
                     <button class="zhvi-preset" data-min="500000"  data-max="750000">$500-750K</button>
                     <button class="zhvi-preset" data-min="750000"  data-max="2000000">$750K+</button>
+                </div>
+                <div class="wc-mode-row">
+                    <button class="wc-mode-btn active" id="wcModeHeat" title="Smooth blur heatmap — best for overall wealth-cluster feel">Heatmap</button>
+                    <button class="wc-mode-btn" id="wcModeDots" title="Individual ZIP dots — click to verify exact values">Debug dots</button>
                 </div>
             </div>
         </div>
@@ -897,23 +917,36 @@
             const fillBar    = document.getElementById('wcFill');
             const metaLabel  = document.getElementById('wcMeta');
             const presets    = document.querySelectorAll('#wealthCloudControls .zhvi-preset');
+            const modeHeatBtn= document.getElementById('wcModeHeat');
+            const modeDotsBtn= document.getElementById('wcModeDots');
             if (!toggleBtn) return;
 
-            let overlayPoints = null;   // [[lat,lng,zhvi], ...]
+            let overlayPoints = null;   // [[lat,lng,zhvi,zip], ...]
             let heatLayer = null;
+            let dotLayer = null;
             let visible = false;
             let overlayDate = '';
+            let mode = 'heat'; // 'heat' | 'dots'
 
             const SLIDER_MIN = 0;
             const SLIDER_MAX = 2000000;
-            // Overall normalization ceiling for heatmap intensity. ZHVI above this
-            // saturates to 1.0 so the color scale doesn't get crushed by a few outliers.
-            const INTENSITY_CEIL = 1500000;
+            // Cap outliers (Fisher Island, Highland Park, etc.) so they don't
+            // saturate the gradient and bleed over surrounding ZIPs.
+            const INTENSITY_CEIL = 1200000;
 
             function fmtMoney(v) {
                 if (v >= 1000000) return '$' + (v / 1000000).toFixed(v % 1000000 === 0 ? 0 : 1) + 'M';
                 if (v >= 1000)    return '$' + Math.round(v / 1000) + 'K';
                 return '$' + v;
+            }
+
+            function valueToColor(v) {
+                // Same stops as the heatmap gradient, interpolated in HSL.
+                const t = Math.max(0, Math.min(1, v / INTENSITY_CEIL));
+                if (t < 0.35)      return '#3b82f6';  // blue
+                else if (t < 0.55) return '#22c55e';  // green
+                else if (t < 0.80) return '#fbbf24';  // yellow
+                else               return '#ef4444';  // red
             }
 
             function updateFillBar() {
@@ -927,34 +960,67 @@
                 maxLabel.textContent = mx >= SLIDER_MAX ? fmtMoney(mx) + '+' : fmtMoney(mx);
             }
 
-            function buildHeat() {
-                if (!overlayPoints) return;
+            function filteredPoints() {
+                if (!overlayPoints) return [];
                 const mn = +minRange.value;
                 const mx = +maxRange.value;
-                const filtered = [];
-                for (const p of overlayPoints) {
-                    const v = p[2];
-                    if (v < mn || v > mx) continue;
-                    // Normalize to 0..1 for intensity. Floor at 0.15 so even
-                    // low-value ZIPs show up on the heatmap.
-                    const intensity = Math.max(0.15, Math.min(1, v / INTENSITY_CEIL));
-                    filtered.push([p[0], p[1], intensity]);
+                return overlayPoints.filter(p => p[2] >= mn && p[2] <= mx);
+            }
+
+            function buildLayer() {
+                if (!overlayPoints) return;
+                const pts = filteredPoints();
+                // Clear previous
+                if (heatLayer) { map.removeLayer(heatLayer); heatLayer = null; }
+                if (dotLayer)  { map.removeLayer(dotLayer);  dotLayer  = null; }
+
+                if (mode === 'heat') {
+                    const heatPts = pts.map(p => {
+                        const intensity = Math.max(0.15, Math.min(1, p[2] / INTENSITY_CEIL));
+                        return [p[0], p[1], intensity];
+                    });
+                    // Tightened radius/blur so nearby ZIPs don't bleed together
+                    // and create false hotspots between them.
+                    heatLayer = L.heatLayer(heatPts, {
+                        radius: 18,
+                        blur: 22,
+                        maxZoom: 13,
+                        minOpacity: 0.30,
+                        gradient: {
+                            0.00: '#3b82f6',
+                            0.35: '#22c55e',
+                            0.65: '#fbbf24',
+                            1.00: '#ef4444'
+                        }
+                    });
+                    if (visible) heatLayer.addTo(map);
+                } else {
+                    // Debug dot mode — individual ZIP circles with click popups
+                    dotLayer = L.layerGroup();
+                    pts.forEach(p => {
+                        const color = valueToColor(p[2]);
+                        const dot = L.circleMarker([p[0], p[1]], {
+                            color: '#0a0a14',
+                            weight: 1,
+                            fillColor: color,
+                            fillOpacity: 0.85,
+                            radius: 6
+                        });
+                        const zipStr = p[3] || 'n/a';
+                        const valStr = '$' + p[2].toLocaleString();
+                        dot.bindPopup(
+                            `<div class="zhvi-dot-popup">` +
+                            `<div class="zdp-zip">ZIP ${zipStr}</div>` +
+                            `<div class="zdp-val">${valStr}</div>` +
+                            `<div style="color:#6a6a8a;font-size:10px;margin-top:3px;">Zillow ZHVI &bull; ${overlayDate}</div>` +
+                            `</div>`
+                        );
+                        dot.bindTooltip(`ZIP ${zipStr} — ${valStr}`, { direction: 'top', offset: [0,-4] });
+                        dotLayer.addLayer(dot);
+                    });
+                    if (visible) dotLayer.addTo(map);
                 }
-                if (heatLayer) map.removeLayer(heatLayer);
-                heatLayer = L.heatLayer(filtered, {
-                    radius: 28,
-                    blur: 35,
-                    maxZoom: 12,
-                    minOpacity: 0.35,
-                    gradient: {
-                        0.00: '#3b82f6', // blue (low)
-                        0.35: '#22c55e', // green
-                        0.65: '#fbbf24', // yellow
-                        1.00: '#ef4444'  // red (high)
-                    }
-                });
-                if (visible) heatLayer.addTo(map);
-                metaLabel.textContent = `${filtered.length.toLocaleString()} of ${overlayPoints.length.toLocaleString()} ZIPs shown` + (overlayDate ? ` \u2022 ${overlayDate}` : '');
+                metaLabel.textContent = `${pts.length.toLocaleString()} of ${overlayPoints.length.toLocaleString()} ZIPs shown` + (overlayDate ? ` \u2022 ${overlayDate}` : '');
             }
 
             function clearPresetActive() { presets.forEach(b => b.classList.remove('active')); }
@@ -968,7 +1034,7 @@
                     overlayPoints = data.points || [];
                     overlayDate   = data.updated || '';
                     metaLabel.textContent = `${overlayPoints.length.toLocaleString()} ZIPs loaded` + (overlayDate ? ` \u2022 ${overlayDate}` : '');
-                    buildHeat();
+                    buildLayer();
                 } catch (err) {
                     metaLabel.textContent = 'zhvi_overlay.json not found — run refresh_zhvi.py';
                     metaLabel.style.color = '#f87171';
@@ -984,11 +1050,26 @@
                     if (overlayPoints === null) {
                         loadOverlay();
                     } else {
-                        buildHeat();
+                        buildLayer();
                     }
-                } else if (heatLayer) {
-                    map.removeLayer(heatLayer);
+                } else {
+                    if (heatLayer) map.removeLayer(heatLayer);
+                    if (dotLayer)  map.removeLayer(dotLayer);
                 }
+            });
+
+            // Mode switch (heat <-> dots)
+            modeHeatBtn.addEventListener('click', () => {
+                mode = 'heat';
+                modeHeatBtn.classList.add('active');
+                modeDotsBtn.classList.remove('active');
+                buildLayer();
+            });
+            modeDotsBtn.addEventListener('click', () => {
+                mode = 'dots';
+                modeDotsBtn.classList.add('active');
+                modeHeatBtn.classList.remove('active');
+                buildLayer();
             });
 
             // Enforce min <= max on range drag
@@ -996,13 +1077,13 @@
                 if (+minRange.value > +maxRange.value) minRange.value = maxRange.value;
                 clearPresetActive();
                 updateFillBar();
-                buildHeat();
+                buildLayer();
             });
             maxRange.addEventListener('input', () => {
                 if (+maxRange.value < +minRange.value) maxRange.value = minRange.value;
                 clearPresetActive();
                 updateFillBar();
-                buildHeat();
+                buildLayer();
             });
 
             presets.forEach(btn => {
@@ -1014,7 +1095,7 @@
                     clearPresetActive();
                     btn.classList.add('active');
                     updateFillBar();
-                    buildHeat();
+                    buildLayer();
                 });
             });
 
