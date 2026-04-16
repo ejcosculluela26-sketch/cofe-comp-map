@@ -307,6 +307,7 @@
         .source { color: #9aa6c3; font-size: 11px; margin-top: 12px; }
         .tooltip-content { font-size:12px; line-height:1.3; }
         .parcel-crosshair, .sv-crosshair, .flag-crosshair { cursor: crosshair !important; }
+        .star-marker { background: none !important; border: none !important; }
         /* Flag for Review */
         .sb-toggle.on.flag { background: #ef4444; }
         #flagPanel { display: none; padding: 8px 0 0; }
@@ -509,7 +510,9 @@
             ind_lease:   { name: 'Industrial Lease', color: '#eab308' },
             ios_sale:    { name: 'IOS Sale', color: '#f97316' },
             ios_rent:    { name: 'IOS Rent', color: '#22c55e' },
-            ios_pipeline:{ name: 'IOS Pipeline', color: '#a855f7' }
+            ios_pipeline:{ name: 'IOS Pipeline', color: '#a855f7' },
+            cofe_owned:  { name: 'COFE Owned', color: '#facc15', star: true },
+            cofe_sold:   { name: 'COFE Sold', color: '#ef4444', star: true }
         };
 
         function initMap() {
@@ -574,7 +577,10 @@
         Object.entries(layerConfig).forEach(([k, v]) => {
             const el = document.createElement('div');
             el.className = 'sb-layer active';
-            el.innerHTML = `<div class="sb-layer-left"><span class="sb-layer-dot" style="background:${v.color}"></span><span class="sb-layer-name">${v.name}</span></div><span class="sb-layer-count">${(layerCounts[k]||0).toLocaleString()}</span>`;
+            const icon = v.star
+                ? `<span style="color:${v.color};font-size:14px;line-height:10px;">&#9733;</span>`
+                : `<span class="sb-layer-dot" style="background:${v.color}"></span>`;
+            el.innerHTML = `<div class="sb-layer-left">${icon}<span class="sb-layer-name">${v.name}</span></div><span class="sb-layer-count">${(layerCounts[k]||0).toLocaleString()}</span>`;
             el.dataset.layer = k;
             el.addEventListener('click', () => {
                 if (activeLayers.has(k)) {
@@ -686,6 +692,15 @@
                     <div class="detail-value">${comp.zoning || 'N/A'}</div><div class="detail-value">${comp.year_built || 'N/A'}</div>
                     <div class="detail-full"><div class="detail-label">Address</div><div class="detail-value">${comp.a || 'N/A'}</div></div>
                 `;
+            } else if (comp.l === 'cofe_owned' || comp.l === 'cofe_sold') {
+                rows = `
+                    <div class="detail-label">Asset Type</div><div class="detail-label">Status</div>
+                    <div class="detail-value">${comp.asset_type || 'N/A'}</div><div class="detail-value" style="color:${comp.status === 'Owned' ? '#4ade80' : '#f87171'};font-weight:bold;">${comp.status || 'N/A'}</div>
+                    <div class="detail-label">Size</div><div class="detail-label">Market</div>
+                    <div class="detail-value">${comp.sf || 'N/A'}</div><div class="detail-value">${comp.m || 'N/A'}</div>
+                    <div class="detail-full"><div class="detail-label">Address</div><div class="detail-value">${comp.a || 'N/A'}</div></div>
+                    <div class="detail-full"><div class="detail-label">Description</div><div class="detail-value">${comp.cmt || 'N/A'}</div></div>
+                `;
             } else {
                 rows = `
                     <div class="detail-label">Sale Price</div><div class="detail-label">PSF</div>
@@ -780,7 +795,13 @@
         ALL.forEach(comp => {
             if (!comp.lat || !comp.lng) return;
             const color = layerConfig[comp.l]?.color || '#999';
-            const marker = L.circleMarker([comp.lat, comp.lng], { color, fillColor: color, fillOpacity: 0.85, radius: 7, weight: 1 });
+            const isStar = layerConfig[comp.l]?.star;
+            const marker = isStar
+                ? L.marker([comp.lat, comp.lng], { icon: L.divIcon({
+                    html: `<svg width="24" height="24" viewBox="0 0 24 24"><polygon points="12,2 15,9 22,9 16.5,14 18.5,21 12,17 5.5,21 7.5,14 2,9 9,9" fill="${color}" stroke="#fff" stroke-width="1.5"/></svg>`,
+                    className: 'star-marker', iconSize: [24, 24], iconAnchor: [12, 12]
+                  }) })
+                : L.circleMarker([comp.lat, comp.lng], { color, fillColor: color, fillOpacity: 0.85, radius: 7, weight: 1 });
             marker.bindTooltip(getTooltipHTML(comp), { direction: 'top', offset: [0, -8], opacity: 0.95 });
             marker.on('click', () => {
                 if (flagMode) {
@@ -1605,7 +1626,13 @@
                     ALL.forEach(function(comp) {
                         if (!comp.lat || !comp.lng) return;
                         var color = (layerConfig[comp.l] || {}).color || '#999';
-                        var marker = L.circleMarker([comp.lat, comp.lng], { color: color, fillColor: color, fillOpacity: 0.85, radius: 7, weight: 1 });
+                        var isStar = (layerConfig[comp.l] || {}).star;
+                        var marker = isStar
+                            ? L.marker([comp.lat, comp.lng], { icon: L.divIcon({
+                                html: '<svg width="24" height="24" viewBox="0 0 24 24"><polygon points="12,2 15,9 22,9 16.5,14 18.5,21 12,17 5.5,21 7.5,14 2,9 9,9" fill="'+color+'" stroke="#fff" stroke-width="1.5"/></svg>',
+                                className: 'star-marker', iconSize: [24, 24], iconAnchor: [12, 12]
+                              }) })
+                            : L.circleMarker([comp.lat, comp.lng], { color: color, fillColor: color, fillOpacity: 0.85, radius: 7, weight: 1 });
                         marker.bindTooltip(getTooltipHTML(comp), { direction: 'top', offset: [0, -8], opacity: 0.95 });
                         marker.on('click', function() {
                             if (flagMode) { toggleFlag(marker, comp, color); return; }
