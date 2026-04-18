@@ -308,6 +308,14 @@
         .tooltip-content { font-size:12px; line-height:1.3; }
         .parcel-crosshair, .sv-crosshair, .flag-crosshair { cursor: crosshair !important; }
         .star-marker { background: none !important; border: none !important; }
+        .city-label { background: none !important; border: none !important; }
+        .city-label span {
+            color: rgba(255,255,255,0.85); font-family: 'Segoe UI', Arial, sans-serif;
+            font-weight: 700; font-size: 16px; letter-spacing: 1.5px;
+            text-transform: uppercase; white-space: nowrap;
+            text-shadow: 0 1px 4px rgba(0,0,0,0.8), 0 0 12px rgba(0,0,0,0.5);
+            pointer-events: none; transition: font-size 0.2s, opacity 0.2s;
+        }
         /* Flag for Review */
         .sb-toggle.on.flag { background: #ef4444; }
         #flagPanel { display: none; padding: 8px 0 0; }
@@ -856,6 +864,50 @@
                 }
                 window.history.replaceState({}, '', window.location.pathname);
             }, 500);
+        })();
+
+        // ── City name labels — scale with zoom ──
+        (function cityLabels() {
+            const cities = [
+                { name: 'Houston', lat: 29.76, lng: -95.37 },
+                { name: 'Dallas-Fort Worth', lat: 32.78, lng: -96.80 },
+                { name: 'San Antonio', lat: 29.42, lng: -98.49 },
+                { name: 'Austin', lat: 30.27, lng: -97.74 },
+                { name: 'Miami', lat: 25.76, lng: -80.19 },
+                { name: 'Orlando', lat: 28.54, lng: -81.38 },
+                { name: 'Tampa', lat: 27.95, lng: -82.46 },
+                { name: 'Atlanta', lat: 33.75, lng: -84.39 },
+                { name: 'Charlotte', lat: 35.23, lng: -80.84 },
+                { name: 'Charleston', lat: 32.78, lng: -79.93 },
+                { name: 'Jacksonville', lat: 30.33, lng: -81.66 },
+            ];
+            const labelMarkers = [];
+            cities.forEach(c => {
+                const m = L.marker([c.lat, c.lng], {
+                    icon: L.divIcon({
+                        className: 'city-label',
+                        html: '<span>' + c.name + '</span>',
+                        iconSize: [0, 0],
+                        iconAnchor: [0, 0]
+                    }),
+                    interactive: false,
+                    pane: 'tooltipPane'
+                });
+                m.addTo(map);
+                labelMarkers.push(m);
+            });
+            function updateLabelSize() {
+                const z = map.getZoom();
+                // Scale: 18px at zoom 5, down to 10px at zoom 12+, hidden at 14+
+                const size = Math.max(10, Math.min(18, 28 - z * 2));
+                const opacity = z >= 14 ? 0 : z >= 12 ? 0.3 : z >= 10 ? 0.5 : 0.85;
+                document.querySelectorAll('.city-label span').forEach(el => {
+                    el.style.fontSize = size + 'px';
+                    el.style.opacity = opacity;
+                });
+            }
+            map.on('zoomend', updateLabelSize);
+            updateLabelSize();
         })();
 
         // Year multi-select dropdown
