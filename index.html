@@ -866,24 +866,76 @@
             }, 500);
         })();
 
-        // ── City name labels — scale with zoom ──
+        // ── City name labels — extracted from comp addresses, scale with zoom ──
         (function cityLabels() {
-            const cities = [
-                { name: 'Houston', lat: 29.76, lng: -95.37 },
-                { name: 'Dallas-Fort Worth', lat: 32.78, lng: -96.80 },
-                { name: 'San Antonio', lat: 29.42, lng: -98.49 },
-                { name: 'Austin', lat: 30.27, lng: -97.74 },
-                { name: 'Miami', lat: 25.76, lng: -80.19 },
-                { name: 'Orlando', lat: 28.54, lng: -81.38 },
-                { name: 'Tampa', lat: 27.95, lng: -82.46 },
-                { name: 'Atlanta', lat: 33.75, lng: -84.39 },
-                { name: 'Charlotte', lat: 35.23, lng: -80.84 },
-                { name: 'Charleston', lat: 32.78, lng: -79.93 },
-                { name: 'Jacksonville', lat: 30.33, lng: -81.66 },
-            ];
-            const labelMarkers = [];
-            cities.forEach(c => {
-                const m = L.marker([c.lat, c.lng], {
+            // Parse city from address: "123 Main St, Fort Lauderdale, FL 33301" → "Fort Lauderdale"
+            function extractCity(addr) {
+                if (!addr) return null;
+                // Split by comma, take the second-to-last segment (city), strip state/zip
+                var parts = addr.split(',').map(function(s) { return s.trim(); });
+                if (parts.length >= 2) {
+                    // Second-to-last part is usually "City, ST ZIP" — grab the city part
+                    var cityPart = parts.length >= 3 ? parts[parts.length - 2] : parts[0];
+                    // Strip state abbreviation and zip code
+                    cityPart = cityPart.replace(/\b[A-Z]{2}\s*\d{5}(-\d{4})?\b/g, '').trim();
+                    // Strip trailing state abbreviation
+                    cityPart = cityPart.replace(/\s+[A-Z]{2}$/,'').trim();
+                    // Skip if it looks like a street or is too short
+                    if (cityPart.length >= 3 && !/^\d/.test(cityPart)) return cityPart;
+                }
+                return null;
+            }
+
+            // Normalize city names for grouping
+            var cityNormMap = {};
+            function normalizeCity(name) {
+                var key = name.toLowerCase().replace(/[^a-z\s]/g, '').trim();
+                // Group known variations
+                var aliases = {
+                    'ft worth': 'Fort Worth', 'fort worth': 'Fort Worth',
+                    'ft lauderdale': 'Fort Lauderdale', 'fort lauderdale': 'Fort Lauderdale',
+                    'west palm beach': 'West Palm Beach',
+                    'palm beach gardens': 'Palm Beach Gardens',
+                    'palm beach': 'Palm Beach',
+                    'deerfield beach': 'Deerfield Beach',
+                    'pompano beach': 'Pompano Beach',
+                    'coral springs': 'Coral Springs',
+                    'boca raton': 'Boca Raton',
+                    'grand prairie': 'Grand Prairie',
+                    'sugar land': 'Sugar Land',
+                    'richland hills': 'Richland Hills',
+                };
+                if (aliases[key]) return aliases[key];
+                if (cityNormMap[key]) return cityNormMap[key];
+                cityNormMap[key] = name;
+                return name;
+            }
+
+            // Collect cities from all comp addresses
+            var cityData = {};
+            ALL.forEach(function(comp) {
+                if (!comp.lat || !comp.lng || !comp.a) return;
+                var city = extractCity(comp.a);
+                if (!city) return;
+                city = normalizeCity(city);
+                if (!cityData[city]) cityData[city] = { lats: [], lngs: [], count: 0 };
+                cityData[city].lats.push(comp.lat);
+                cityData[city].lngs.push(comp.lng);
+                cityData[city].count++;
+            });
+
+            // Build label list: place at centroid of all comps in that city
+            // Only show cities with at least 1 comp
+            var cities = [];
+            Object.keys(cityData).forEach(function(name) {
+                var d = cityData[name];
+                var avgLat = d.lats.reduce(function(a,b){return a+b;}, 0) / d.lats.length;
+                var avgLng = d.lngs.reduce(function(a,b){return a+b;}, 0) / d.lngs.length;
+                cities.push({ name: name, lat: avgLat, lng: avgLng, count: d.count });
+            });
+
+            cities.forEach(function(c) {
+                L.marker([c.lat, c.lng], {
                     icon: L.divIcon({
                         className: 'city-label',
                         html: '<span>' + c.name + '</span>',
@@ -892,16 +944,15 @@
                     }),
                     interactive: false,
                     pane: 'tooltipPane'
-                });
-                m.addTo(map);
-                labelMarkers.push(m);
+                }).addTo(map);
             });
+
             function updateLabelSize() {
-                const z = map.getZoom();
-                // Scale: 18px at zoom 5, down to 10px at zoom 12+, hidden at 14+
-                const size = Math.max(10, Math.min(18, 28 - z * 2));
-                const opacity = z >= 14 ? 0 : z >= 12 ? 0.3 : z >= 10 ? 0.5 : 0.85;
-                document.querySelectorAll('.city-label span').forEach(el => {
+                var z = map.getZoom();
+                // At low zoom: large text. As you zoom in: shrink. At street level: fade out.
+                var size = Math.max(9, Math.min(16, 26 - z * 1.8));
+                var opacity = z >= 15 ? 0 : z >= 13 ? 0.25 : z >= 11 ? 0.5 : z >= 9 ? 0.7 : 0.85;
+                document.querySelectorAll('.city-label span').forEach(function(el) {
                     el.style.fontSize = size + 'px';
                     el.style.opacity = opacity;
                 });
