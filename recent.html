@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Recent Comps | COFE Properties</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0; font-family: 'Segoe UI', Arial, sans-serif;
+            background: #0b1220; color: #e0e0e0;
+        }
+
+        /* Header */
+        .header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 18px 28px; border-bottom: 1px solid #2a2a3e;
+            background: #1e1e2e; position: sticky; top: 0; z-index: 100;
+        }
+        .header h1 { margin: 0; font-size: 18px; font-weight: 700; color: #fff; letter-spacing: 0.5px; }
+        .header .sub { font-size: 11px; color: #6a6a8a; margin-top: 2px; }
+        .header a {
+            color: #63b3ed; text-decoration: none; font-size: 13px; font-weight: 600;
+            padding: 8px 16px; border: 1px solid #3a3a5c; border-radius: 6px;
+            transition: all 0.15s;
+        }
+        .header a:hover { background: #1e1e3e; border-color: #63b3ed; }
+
+        /* Filters */
+        .filters {
+            display: flex; gap: 10px; padding: 14px 28px; border-bottom: 1px solid #2a2a3e;
+            background: #161628; flex-wrap: wrap; align-items: center;
+        }
+        .filters label { font-size: 11px; color: #6a6a8a; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; }
+        .filters select, .filters input {
+            padding: 7px 10px; font-size: 12px; border-radius: 6px;
+            border: 1px solid #3a3a5c; background: #16162a; color: #e0e0e0;
+            outline: none; transition: border-color 0.15s;
+        }
+        .filters select:focus, .filters input:focus { border-color: #3b82f6; }
+        .count-badge {
+            margin-left: auto; font-size: 12px; color: #6a6a8a;
+        }
+        .count-badge strong { color: #63b3ed; }
+
+        /* Table */
+        .table-wrap {
+            overflow-x: auto; padding: 0 28px 28px;
+        }
+        table {
+            width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 13px;
+        }
+        thead th {
+            text-align: left; padding: 10px 12px; font-size: 10px; font-weight: 700;
+            color: #6a6a8a; text-transform: uppercase; letter-spacing: 1px;
+            border-bottom: 2px solid #2a2a3e; cursor: pointer; white-space: nowrap;
+            user-select: none; position: relative;
+        }
+        thead th:hover { color: #63b3ed; }
+        thead th .sort-arrow { margin-left: 4px; font-size: 9px; }
+        tbody tr {
+            border-bottom: 1px solid #1a1a2e; cursor: pointer; transition: background 0.1s;
+        }
+        tbody tr:hover { background: #1a2440; }
+        tbody td { padding: 10px 12px; white-space: nowrap; }
+
+        /* Layer type badges */
+        .layer-badge {
+            display: inline-block; padding: 3px 8px; border-radius: 4px;
+            font-size: 10px; font-weight: 700; color: #fff; letter-spacing: 0.3px;
+        }
+        .layer-badge.ind_sale { background: #3b82f6; }
+        .layer-badge.ind_lease { background: #eab308; color: #1a1a2e; }
+        .layer-badge.ios_sale { background: #f97316; }
+        .layer-badge.ios_rent { background: #22c55e; color: #1a1a2e; }
+        .layer-badge.ios_pipeline { background: #a855f7; }
+        .layer-badge.cofe_owned { background: #fbbf24; color: #1a1a2e; }
+        .layer-badge.cofe_sold { background: #ef4444; }
+
+        /* Added date */
+        .date-added { color: #4ade80; font-size: 11px; font-weight: 600; }
+        .date-sale { color: #94a3b8; }
+
+        /* Price */
+        .price { color: #fff; font-weight: 600; }
+        .price-secondary { color: #6a6a8a; font-size: 11px; }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .header { padding: 14px 16px; }
+            .filters { padding: 10px 16px; }
+            .table-wrap { padding: 0 8px 16px; }
+            table { font-size: 12px; }
+            tbody td, thead th { padding: 8px 6px; }
+        }
+
+        /* Loading */
+        .loading {
+            text-align: center; padding: 60px; color: #6a6a8a; font-size: 14px;
+        }
+        .loading .spinner {
+            display: inline-block; width: 24px; height: 24px;
+            border: 3px solid #2a2a3e; border-top: 3px solid #3b82f6;
+            border-radius: 50%; animation: spin 0.8s linear infinite;
+            margin-bottom: 12px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div>
+            <h1>COFE Properties &mdash; Recent Comps</h1>
+            <div class="sub">Last 50 comps added to the database</div>
+        </div>
+        <a href="index.html">&larr; Back to Map</a>
+    </div>
+
+    <div class="filters">
+        <label>Type</label>
+        <select id="filterType">
+            <option value="">All Types</option>
+            <option value="ind_sale">Industrial Sale</option>
+            <option value="ind_lease">Industrial Lease</option>
+            <option value="ios_sale">IOS Sale</option>
+            <option value="ios_rent">IOS Rent</option>
+            <option value="ios_pipeline">IOS Pipeline</option>
+            <option value="cofe_owned">COFE Owned</option>
+            <option value="cofe_sold">COFE Sold</option>
+        </select>
+        <label>Market</label>
+        <select id="filterMarket">
+            <option value="">All Markets</option>
+        </select>
+        <label>Search</label>
+        <input id="filterSearch" type="text" placeholder="Address, buyer, seller..." style="width:200px;" />
+        <div class="count-badge">Showing <strong id="showCount">0</strong> comps</div>
+    </div>
+
+    <div class="table-wrap">
+        <div class="loading" id="loadingMsg">
+            <div class="spinner"></div><br>Loading comps...
+        </div>
+        <table id="compTable" style="display:none;">
+            <thead>
+                <tr>
+                    <th data-col="ca">Added <span class="sort-arrow"></span></th>
+                    <th data-col="l">Type <span class="sort-arrow"></span></th>
+                    <th data-col="a">Address <span class="sort-arrow"></span></th>
+                    <th data-col="m">Market <span class="sort-arrow"></span></th>
+                    <th data-col="dt">Date <span class="sort-arrow"></span></th>
+                    <th data-col="parties">Buyer / Seller / Tenant <span class="sort-arrow"></span></th>
+                    <th data-col="sf">Size <span class="sort-arrow"></span></th>
+                    <th data-col="p">Price <span class="sort-arrow"></span></th>
+                    <th data-col="cap">Cap Rate <span class="sort-arrow"></span></th>
+                </tr>
+            </thead>
+            <tbody id="compBody"></tbody>
+        </table>
+    </div>
+
+    <script>
+    (function() {
+        const LAYER_LABELS = {
+            ind_sale: 'Ind. Sale', ind_lease: 'Ind. Lease',
+            ios_sale: 'IOS Sale', ios_rent: 'IOS Rent',
+            ios_pipeline: 'Pipeline', cofe_owned: 'Owned', cofe_sold: 'Sold'
+        };
+
+        let allComps = [];
+        let sortCol = 'ca';
+        let sortAsc = false; // newest first
+
+        // Fetch data.json
+        fetch('data.json?_=' + Date.now())
+            .then(r => r.json())
+            .then(data => {
+                // Sort all by created_at desc, take top 50
+                allComps = data
+                    .filter(d => d.ca)
+                    .sort((a, b) => (b.ca || '').localeCompare(a.ca || ''));
+
+                // Take top 50 unique created_at batches (a batch = one insert session)
+                allComps = allComps.slice(0, 50);
+
+                // Populate market dropdown
+                const markets = [...new Set(allComps.map(d => d.m).filter(Boolean))].sort();
+                const sel = document.getElementById('filterMarket');
+                markets.forEach(m => {
+                    const opt = document.createElement('option');
+                    opt.value = m; opt.textContent = m;
+                    sel.appendChild(opt);
+                });
+
+                document.getElementById('loadingMsg').style.display = 'none';
+                document.getElementById('compTable').style.display = '';
+                renderTable();
+            })
+            .catch(err => {
+                document.getElementById('loadingMsg').innerHTML =
+                    '<span style="color:#ef4444;">Failed to load data.json</span>';
+                console.error(err);
+            });
+
+        // Helper: get parties string from a comp
+        function getParties(d) {
+            const parts = [];
+            if (d.buyer) parts.push(d.buyer);
+            if (d.seller) parts.push(d.seller);
+            if (d.tenant) parts.push(d.tenant);
+            if (d.landlord) parts.push(d.landlord);
+            return parts.join(' / ');
+        }
+
+        // Helper: get price display
+        function getPrice(d) {
+            if (d.p) return d.p;
+            if (d.base_rent) return d.base_rent;
+            if (d.rent_ac) return d.rent_ac + '/ac';
+            return '';
+        }
+
+        // Helper: get sortable numeric value from formatted string
+        function parseNum(s) {
+            if (!s) return 0;
+            return parseFloat(String(s).replace(/[^0-9.\-]/g, '')) || 0;
+        }
+
+        // Format created_at date nicely
+        function fmtAdded(ca) {
+            if (!ca) return '';
+            try {
+                const d = new Date(ca.replace(' ', 'T') + 'Z');
+                const mo = (d.getMonth() + 1).toString().padStart(2, '0');
+                const day = d.getDate().toString().padStart(2, '0');
+                return mo + '/' + day + '/' + d.getFullYear();
+            } catch { return ca.split(' ')[0]; }
+        }
+
+        // Sort comparator
+        function getSortVal(d, col) {
+            switch (col) {
+                case 'ca': return d.ca || '';
+                case 'l': return d.l || '';
+                case 'a': return (d.a || '').toLowerCase();
+                case 'm': return (d.m || '').toLowerCase();
+                case 'dt': return d.dt || '';
+                case 'parties': return getParties(d).toLowerCase();
+                case 'sf': return parseNum(d.sf);
+                case 'p': return parseNum(getPrice(d));
+                case 'cap': return parseNum(d.cap);
+                default: return '';
+            }
+        }
+
+        function renderTable() {
+            const typeF = document.getElementById('filterType').value;
+            const mktF = document.getElementById('filterMarket').value;
+            const searchF = document.getElementById('filterSearch').value.toLowerCase();
+
+            let filtered = allComps.filter(d => {
+                if (typeF && d.l !== typeF) return false;
+                if (mktF && d.m !== mktF) return false;
+                if (searchF) {
+                    const haystack = [d.a, d.n, d.m, d.sm, getParties(d)].join(' ').toLowerCase();
+                    if (!haystack.includes(searchF)) return false;
+                }
+                return true;
+            });
+
+            // Sort
+            filtered.sort((a, b) => {
+                let va = getSortVal(a, sortCol);
+                let vb = getSortVal(b, sortCol);
+                if (typeof va === 'number' && typeof vb === 'number') {
+                    return sortAsc ? va - vb : vb - va;
+                }
+                va = String(va); vb = String(vb);
+                return sortAsc ? va.localeCompare(vb) : vb.localeCompare(va);
+            });
+
+            document.getElementById('showCount').textContent = filtered.length;
+
+            // Update sort arrows
+            document.querySelectorAll('thead th').forEach(th => {
+                const arrow = th.querySelector('.sort-arrow');
+                if (th.dataset.col === sortCol) {
+                    arrow.textContent = sortAsc ? ' \u25B2' : ' \u25BC';
+                } else {
+                    arrow.textContent = '';
+                }
+            });
+
+            const tbody = document.getElementById('compBody');
+            tbody.innerHTML = '';
+
+            filtered.forEach(d => {
+                const tr = document.createElement('tr');
+                tr.title = 'Click to view on map';
+                tr.onclick = () => {
+                    if (d.lat && d.lng) {
+                        window.location.href = 'index.html?fly=' + d.lat + ',' + d.lng + '&row=' + (d.row || '');
+                    }
+                };
+
+                tr.innerHTML =
+                    '<td><span class="date-added">' + fmtAdded(d.ca) + '</span></td>' +
+                    '<td><span class="layer-badge ' + d.l + '">' + (LAYER_LABELS[d.l] || d.l) + '</span></td>' +
+                    '<td>' + (d.a || d.n || '') + '</td>' +
+                    '<td>' + (d.m || '') + '</td>' +
+                    '<td class="date-sale">' + (d.dt || '') + '</td>' +
+                    '<td>' + truncate(getParties(d), 40) + '</td>' +
+                    '<td>' + (d.sf || '') + '</td>' +
+                    '<td><span class="price">' + getPrice(d) + '</span>' +
+                        (d.psf ? '<br><span class="price-secondary">' + d.psf + '</span>' : '') +
+                    '</td>' +
+                    '<td>' + (d.cap || '') + '</td>';
+
+                tbody.appendChild(tr);
+            });
+        }
+
+        function truncate(s, max) {
+            return s.length > max ? s.substring(0, max) + '...' : s;
+        }
+
+        // Sort header clicks
+        document.querySelectorAll('thead th').forEach(th => {
+            th.addEventListener('click', () => {
+                const col = th.dataset.col;
+                if (sortCol === col) {
+                    sortAsc = !sortAsc;
+                } else {
+                    sortCol = col;
+                    sortAsc = col === 'a' || col === 'm' || col === 'l'; // alpha cols default asc
+                }
+                renderTable();
+            });
+        });
+
+        // Filter listeners
+        document.getElementById('filterType').addEventListener('change', renderTable);
+        document.getElementById('filterMarket').addEventListener('change', renderTable);
+        document.getElementById('filterSearch').addEventListener('input', renderTable);
+    })();
+    </script>
+</body>
+</html>

@@ -463,6 +463,7 @@
                 <span class="sb-stats-label">Visible</span>
                 <span class="sb-stats-value" id="visibleCount">0</span>
             </div>
+            <a href="recent.html" style="display:block;width:100%;margin-top:10px;padding:7px;font-size:11px;border-radius:6px;border:1px solid #3a3a5c;background:#16162a;color:#4ade80;cursor:pointer;font-weight:600;transition:all 0.15s;text-align:center;text-decoration:none;" onmouseover="this.style.background='#1e1e3e'" onmouseout="this.style.background='#16162a'">&#x1f4cb; Recent Comps</a>
             <button id="refreshBtn" style="width:100%;margin-top:10px;padding:7px;font-size:11px;border-radius:6px;border:1px solid #3a3a5c;background:#16162a;color:#63b3ed;cursor:pointer;font-weight:600;transition:all 0.15s;" onmouseover="this.style.background='#1e1e3e'" onmouseout="this.style.background='#16162a'">&#x21BB; Refresh Data</button>
         </div>
     </div>
@@ -836,6 +837,30 @@
         if (bounds.length) {
             map.fitBounds(bounds, { padding: [20, 20] });
         }
+
+        // URL parameter: ?fly=lat,lng&row=ID — fly to a comp from the Recent page
+        (function handleFlyTo() {
+            const params = new URLSearchParams(window.location.search);
+            const fly = params.get('fly');
+            const rowId = params.get('row');
+            if (!fly) return;
+            const [lat, lng] = fly.split(',').map(Number);
+            if (!lat || !lng) return;
+            setTimeout(() => {
+                map.flyTo([lat, lng], 17, { duration: 1.5 });
+                // Find and highlight the matching marker
+                if (rowId) {
+                    const match = markers.find(m => String(m.comp.row) === rowId);
+                    if (match) {
+                        setTimeout(() => {
+                            match.marker.fire('click');
+                        }, 1800);
+                    }
+                }
+                // Clean URL
+                window.history.replaceState({}, '', window.location.pathname);
+            }, 500);
+        })();
 
         // Year multi-select dropdown
         const years = [...new Set(ALL.map(c => c.yr).filter(y => y))].sort((a, b) => b - a);
@@ -1663,49 +1688,4 @@
                     ALL.forEach(function(c) { lc[c.l] = (lc[c.l]||0) + 1; });
                     document.querySelectorAll('.sb-layer').forEach(function(el) {
                         var k = el.dataset.layer;
-                        if (el.querySelector('.sb-layer-count')) el.querySelector('.sb-layer-count').textContent = (lc[k]||0).toLocaleString();
-                    });
-                    // Rebuild year checkboxes
-                    var newYears = [...new Set(ALL.map(function(c){return c.yr;}).filter(function(y){return y;}))].sort(function(a,b){return b-a;});
-                    activeYears = new Set(newYears);
-                    var yc = document.getElementById('yearCheckboxes');
-                    yc.innerHTML = '';
-                    newYears.forEach(function(y) {
-                        var item = document.createElement('div');
-                        item.className = 'yr-dd-item checked';
-                        item.dataset.year = y;
-                        item.innerHTML = '<span class="yr-dd-check"></span><span>'+y+'</span>';
-                        item.addEventListener('click', function() {
-                            if (activeYears.has(y)) { activeYears.delete(y); item.classList.remove('checked'); }
-                            else { activeYears.add(y); item.classList.add('checked'); }
-                            updateYearBtnLabel();
-                            refreshMarkers();
-                        });
-                        yc.appendChild(item);
-                    });
-                    updateYearBtnLabel();
-                    document.getElementById('totalPins').textContent = ALL.length.toLocaleString();
-                    refreshMarkers();
-                    notify('Refreshed: ' + ALL.length.toLocaleString() + ' comps loaded', 'info', 2500);
-                })
-                .catch(function(e) { notify('Refresh failed: ' + e.message, 'error', 5000); });
-        }
-        document.getElementById('refreshBtn').addEventListener('click', refreshData);
-
-        } // end initMap
-
-        // Initial data load
-        fetch('data.json')
-            .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-            .then(function(data) {
-                ALL = data;
-                initMap();
-            })
-            .catch(function(e) {
-                document.getElementById('map').innerHTML = '<div style="padding:40px;color:#ef4444;text-align:center;"><h2>Failed to load data</h2><p>' + e.message + '</p><p>Make sure data.json exists in the same directory.</p></div>';
-            });
-
-
-    </script>
-</body>
-</html>
+                        if (el.querySelector('.sb-layer-count')) el.queryS
