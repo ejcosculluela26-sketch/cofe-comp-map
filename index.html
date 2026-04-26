@@ -237,14 +237,39 @@
         #detail-panel {
             position: absolute; bottom: 0; left: 0; right: 0; z-index: 900;
             background: #1a1a2e; color: #f5f7fa; border-top: 2px solid #3b82f6;
-            height: 0; max-height: 55vh; overflow: hidden;
+            height: 0; max-height: 85vh; overflow: hidden;
             transition: height 0.35s cubic-bezier(0.4,0,0.2,1);
             display: flex; flex-direction: column;
         }
         #detail-panel.open { height: 50vh; overflow: visible; }
+        #detail-panel.dragging { transition: none; }
+        #detail-panel.minimized { overflow: hidden !important; }
+        #detail-panel.minimized #detail-panel-header,
+        #detail-panel.minimized #detail-tabs,
+        #detail-panel.minimized #detail-tab-content,
+        #detail-panel.minimized #detail-panel-close { display: none !important; }
+        /* Drag handle */
+        #detail-panel-handle {
+            height: 28px; cursor: ns-resize; display: flex; align-items: center;
+            justify-content: center; flex-shrink: 0; user-select: none;
+            background: #151528; border-bottom: 1px solid #2a2a4a; position: relative;
+        }
+        #detail-panel-handle .handle-grip {
+            width: 40px; height: 4px; border-radius: 2px; background: #3a3a5c;
+            transition: background 0.15s;
+        }
+        #detail-panel-handle:hover .handle-grip { background: #5a5a8c; }
+        #detail-panel-minimize {
+            position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+            z-index: 921; background: transparent; border: none; color: #8aa0cc;
+            font-size: 14px; width: 24px; height: 24px; border-radius: 4px;
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+            transition: all 0.15s;
+        }
+        #detail-panel-minimize:hover { background: #2a2a4a; color: #fff; }
         /* Overlay close button — always on top */
         #detail-panel-close {
-            position: absolute; top: 10px; right: 14px; z-index: 920;
+            position: absolute; top: 38px; right: 14px; z-index: 920;
             background: rgba(26,26,46,0.7); border: 1px solid rgba(255,255,255,0.2); color: #e0e0e0;
             font-size: 20px; width: 34px; height: 34px; border-radius: 8px;
             cursor: pointer; display: flex; align-items: center; justify-content: center;
@@ -281,7 +306,7 @@
         #detail-panel.sv-mode .sv-iframe-wrap { height: 100%; min-height: unset; border-radius: 0; border: none; }
         /* SV overlay label */
         .sv-overlay-label {
-            position: absolute; top: 10px; left: 14px; z-index: 915;
+            position: absolute; top: 38px; left: 14px; z-index: 915;
             background: rgba(26,26,46,0.7); backdrop-filter: blur(6px);
             padding: 6px 14px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.15);
         }
@@ -489,6 +514,7 @@
         <div id="map"></div>
         <!-- Bottom Detail Panel -->
         <div id="detail-panel">
+            <div id="detail-panel-handle"><span class="handle-grip"></span><button id="detail-panel-minimize" title="Minimize panel">&#x2500;</button></div>
             <button id="detail-panel-close" title="Close panel">&times;</button>
             <div id="detail-panel-header">
                 <div>
@@ -623,16 +649,88 @@
         // Close panel
         document.getElementById('detail-panel-close').addEventListener('click', () => {
             const p = document.getElementById('detail-panel');
-            p.classList.remove('open', 'sv-mode');
+            p.classList.remove('open', 'sv-mode', 'minimized', 'dragging');
+            p.style.height = '';
             const lbl = p.querySelector('.sv-overlay-label');
             if (lbl) lbl.remove();
             map.invalidateSize({ animate: true });
         });
 
+        // Minimize / restore panel
+        (function() {
+            const panel = document.getElementById('detail-panel');
+            const minBtn = document.getElementById('detail-panel-minimize');
+            const handleH = 28; // handle bar height
+            let savedHeight = null;
+
+            minBtn.addEventListener('click', () => {
+                if (panel.classList.contains('minimized')) {
+                    panel.classList.remove('minimized');
+                    panel.style.height = savedHeight || '50vh';
+                    minBtn.innerHTML = '&#x2500;';
+                    minBtn.title = 'Minimize panel';
+                } else {
+                    savedHeight = panel.style.height || panel.getBoundingClientRect().height + 'px';
+                    panel.classList.add('minimized');
+                    panel.style.height = handleH + 'px';
+                    minBtn.innerHTML = '&#x25B2;';
+                    minBtn.title = 'Restore panel';
+                }
+                map.invalidateSize({ animate: true });
+            });
+
+            // Drag-to-resize
+            const handle = document.getElementById('detail-panel-handle');
+
+            // Double-click handle to toggle minimize
+            handle.addEventListener('dblclick', () => minBtn.click());
+            let dragging = false, startY = 0, startH = 0;
+
+            handle.addEventListener('mousedown', startDrag);
+            handle.addEventListener('touchstart', startDrag, { passive: false });
+
+            function startDrag(e) {
+                if (e.target === minBtn || panel.classList.contains('minimized')) return;
+                e.preventDefault();
+                dragging = true;
+                startY = e.type === 'touchstart' ? e.touches[0].clientY : e.clientY;
+                startH = panel.getBoundingClientRect().height;
+                panel.classList.add('dragging');
+                document.addEventListener('mousemove', onDrag);
+                document.addEventListener('mouseup', stopDrag);
+                document.addEventListener('touchmove', onDrag, { passive: false });
+                document.addEventListener('touchend', stopDrag);
+            }
+
+            function onDrag(e) {
+                if (!dragging) return;
+                e.preventDefault();
+                const clientY = e.type === 'touchmove' ? e.touches[0].clientY : e.clientY;
+                const delta = startY - clientY;
+                const mainArea = document.getElementById('main-area');
+                const maxH = mainArea ? mainArea.getBoundingClientRect().height * 0.85 : window.innerHeight * 0.85;
+                const newH = Math.max(handleH, Math.min(maxH, startH + delta));
+                panel.style.height = newH + 'px';
+            }
+
+            function stopDrag() {
+                if (!dragging) return;
+                dragging = false;
+                panel.classList.remove('dragging');
+                document.removeEventListener('mousemove', onDrag);
+                document.removeEventListener('mouseup', stopDrag);
+                document.removeEventListener('touchmove', onDrag);
+                document.removeEventListener('touchend', stopDrag);
+                map.invalidateSize({ animate: true });
+            }
+        })();
+
         function setDetailPanel(comp) {
             const panel = document.getElementById('detail-panel');
             // Exit SV full-bleed mode, remove overlay label
-            panel.classList.remove('sv-mode');
+            panel.classList.remove('sv-mode', 'minimized');
+            const minBtn = document.getElementById('detail-panel-minimize');
+            if (minBtn) { minBtn.innerHTML = '&#x2500;'; minBtn.title = 'Minimize panel'; }
             const oldLabel = panel.querySelector('.sv-overlay-label');
             if (oldLabel) oldLabel.remove();
 
@@ -1861,5 +1959,6 @@
 
 
     </script>
+    <script src="chat.js"></script>
 </body>
 </html>
