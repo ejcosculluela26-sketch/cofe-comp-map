@@ -63,7 +63,7 @@ export default {
 
       // Build the Anthropic API request
       const anthropicBody = {
-        model: body.model || 'claude-sonnet-4-20250514',
+        model: body.model || 'claude-haiku-4-5-20251001',
         max_tokens: Math.min(body.max_tokens || 1024, 2048),
         messages: body.messages,
       };

@@ -49,6 +49,10 @@ function setActiveProperty(comp) {
 }
 
 (function() {
+  /* ---- default & min/max sizes ---- */
+  const DEF_W = 480, DEF_H = 600;
+  const MIN_W = 350, MIN_H = 400;
+
   /* ---- inject styles ---- */
   const style = document.createElement('style');
   style.textContent = `
@@ -67,12 +71,32 @@ function setActiveProperty(comp) {
 
     #cofe-chat-panel {
       position:fixed; bottom:86px; right:24px; z-index:9998;
-      width:400px; height:500px; max-height:calc(100vh - 110px);
+      width:${DEF_W}px; height:${DEF_H}px; max-height:calc(100vh - 110px);
       background:#1e1e2e; border:1px solid #2a2a4a; border-radius:12px;
       display:none; flex-direction:column; overflow:hidden;
       box-shadow:0 8px 40px rgba(0,0,0,0.5);
+      transition: width 0.2s, height 0.2s, top 0.2s, left 0.2s, right 0.2s, bottom 0.2s;
     }
     #cofe-chat-panel.open { display:flex; }
+    #cofe-chat-panel.maximized {
+      width:90vw !important; height:85vh !important;
+      top:50% !important; left:50% !important;
+      right:auto !important; bottom:auto !important;
+      transform:translate(-50%,-50%); max-height:85vh;
+    }
+    #cofe-chat-panel.dragging { transition:none; }
+
+    /* Resize handle — top-left corner */
+    #cofe-chat-resize {
+      position:absolute; top:0; left:0; width:16px; height:16px;
+      cursor:nw-resize; z-index:10;
+    }
+    #cofe-chat-resize::after {
+      content:''; position:absolute; top:3px; left:3px;
+      width:8px; height:8px; border-top:2px solid #3a3a5c; border-left:2px solid #3a3a5c;
+      transition:border-color .15s;
+    }
+    #cofe-chat-resize:hover::after { border-color:#8aa0cc; }
 
     #cofe-chat-header {
       padding:12px 16px; background:#151528; border-bottom:1px solid #2a2a4a;
@@ -80,11 +104,12 @@ function setActiveProperty(comp) {
     }
     #cofe-chat-header h3 { margin:0; font-size:14px; font-weight:700; color:#e2e8f0; }
     #cofe-chat-header h3 span { color:#f6ad55; }
-    #cofe-chat-header button {
-      background:transparent; border:none; color:#8aa0cc; font-size:18px;
-      cursor:pointer; padding:0 4px; transition:color .15s;
+    .cofe-chat-header-btns { display:flex; gap:2px; }
+    .cofe-chat-header-btns button {
+      background:transparent; border:none; color:#8aa0cc; font-size:16px;
+      cursor:pointer; padding:2px 6px; transition:color .15s; border-radius:4px;
     }
-    #cofe-chat-header button:hover { color:#fff; }
+    .cofe-chat-header-btns button:hover { color:#fff; background:#2a2a4a; }
 
     #cofe-chat-messages {
       flex:1; overflow-y:auto; padding:12px 16px; display:flex; flex-direction:column; gap:10px;
@@ -134,8 +159,9 @@ function setActiveProperty(comp) {
     #cofe-chat-send:disabled { background:#2a2a4a; cursor:not-allowed; }
 
     @media(max-width:500px) {
-      #cofe-chat-panel { width:calc(100vw - 16px); right:8px; bottom:78px; height:60vh; }
+      #cofe-chat-panel { width:calc(100vw - 16px) !important; right:8px !important; bottom:78px !important; height:60vh !important; }
       #cofe-chat-btn { bottom:16px; right:16px; width:46px; height:46px; font-size:20px; }
+      #cofe-chat-resize { display:none; }
     }
   `;
   document.head.appendChild(style);
@@ -145,9 +171,13 @@ function setActiveProperty(comp) {
   wrapper.innerHTML = `
     <button id="cofe-chat-btn" title="Chat with AI">&#x1F4AC;</button>
     <div id="cofe-chat-panel">
+      <div id="cofe-chat-resize"></div>
       <div id="cofe-chat-header">
         <h3><span>COFE</span> AI Analyst</h3>
-        <button id="cofe-chat-close" title="Close">&times;</button>
+        <div class="cofe-chat-header-btns">
+          <button id="cofe-chat-max" title="Maximize">&#x2922;</button>
+          <button id="cofe-chat-close" title="Close">&times;</button>
+        </div>
       </div>
       <div id="cofe-chat-messages">
         <div class="chat-msg system">Ask me about comps, pricing trends, cap rates, or any deal in the database.</div>
@@ -162,19 +192,97 @@ function setActiveProperty(comp) {
   const btn = document.getElementById('cofe-chat-btn');
   const panel = document.getElementById('cofe-chat-panel');
   const closeBtn = document.getElementById('cofe-chat-close');
+  const maxBtn = document.getElementById('cofe-chat-max');
+  const resizeHandle = document.getElementById('cofe-chat-resize');
   const input = document.getElementById('cofe-chat-input');
   const sendBtn = document.getElementById('cofe-chat-send');
   const messages = document.getElementById('cofe-chat-messages');
 
   let compData = null;
   let conversationHistory = [];
+  let isMaximized = false;
 
   /* ---- toggle ---- */
   btn.addEventListener('click', () => {
     panel.classList.toggle('open');
     if (panel.classList.contains('open')) input.focus();
   });
-  closeBtn.addEventListener('click', () => panel.classList.remove('open'));
+  closeBtn.addEventListener('click', () => {
+    panel.classList.remove('open', 'maximized');
+    isMaximized = false;
+    maxBtn.innerHTML = '&#x2922;';
+    maxBtn.title = 'Maximize';
+  });
+
+  /* ---- maximize / restore ---- */
+  maxBtn.addEventListener('click', () => {
+    isMaximized = !isMaximized;
+    if (isMaximized) {
+      panel.classList.add('maximized');
+      maxBtn.innerHTML = '&#x2923;';
+      maxBtn.title = 'Restore';
+    } else {
+      panel.classList.remove('maximized');
+      maxBtn.innerHTML = '&#x2922;';
+      maxBtn.title = 'Maximize';
+    }
+  });
+
+  /* ---- resize by dragging top-left corner ---- */
+  (function() {
+    let dragging = false, startX, startY, startW, startH, startRight, startBottom;
+
+    resizeHandle.addEventListener('mousedown', startDrag);
+    resizeHandle.addEventListener('touchstart', startDrag, { passive: false });
+
+    function startDrag(e) {
+      if (isMaximized) return;
+      e.preventDefault();
+      dragging = true;
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      const rect = panel.getBoundingClientRect();
+      startX = clientX;
+      startY = clientY;
+      startW = rect.width;
+      startH = rect.height;
+      startRight = window.innerWidth - rect.right;
+      startBottom = window.innerHeight - rect.bottom;
+      panel.classList.add('dragging');
+      document.addEventListener('mousemove', onDrag);
+      document.addEventListener('mouseup', stopDrag);
+      document.addEventListener('touchmove', onDrag, { passive: false });
+      document.addEventListener('touchend', stopDrag);
+    }
+
+    function onDrag(e) {
+      if (!dragging) return;
+      e.preventDefault();
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      const dx = startX - clientX; // dragging left = wider
+      const dy = startY - clientY; // dragging up = taller
+      const maxW = window.innerWidth * 0.9;
+      const maxH = window.innerHeight * 0.9;
+      const newW = Math.max(MIN_W, Math.min(maxW, startW + dx));
+      const newH = Math.max(MIN_H, Math.min(maxH, startH + dy));
+      panel.style.width = newW + 'px';
+      panel.style.height = newH + 'px';
+      // Keep bottom-right corner anchored
+      panel.style.right = startRight + 'px';
+      panel.style.bottom = startBottom + 'px';
+    }
+
+    function stopDrag() {
+      if (!dragging) return;
+      dragging = false;
+      panel.classList.remove('dragging');
+      document.removeEventListener('mousemove', onDrag);
+      document.removeEventListener('mouseup', stopDrag);
+      document.removeEventListener('touchmove', onDrag);
+      document.removeEventListener('touchend', stopDrag);
+    }
+  })();
 
   /* ---- auto-resize textarea ---- */
   input.addEventListener('input', () => {
@@ -215,7 +323,8 @@ function setActiveProperty(comp) {
     }
 
     /* build filtered context */
-    const context = buildContext(text);
+    const { context, compCount } = buildContext(text);
+    console.log('COFE Chat: sending ' + compCount + ' comps as context');
 
     /* build the message content, prepending active property if set */
     let messageContent = text;
@@ -322,7 +431,6 @@ function setActiveProperty(comp) {
       if (!markets[m]) markets[m] = { count: 0, layers: {}, prices: [], psfs: [] };
       markets[m].count++;
       markets[m].layers[c.l] = (markets[m].layers[c.l] || 0) + 1;
-      // Parse numeric price
       if (c.p) {
         const num = parseFloat(c.p.replace(/[$,]/g, ''));
         if (!isNaN(num) && num > 0) markets[m].prices.push(num);
@@ -350,11 +458,11 @@ function setActiveProperty(comp) {
       lines.push(`${m}: ${stats}`);
     }
     lines.push('\nAsk about a specific market or click a property on the map for detailed comp data.');
-    return lines.join('\n');
+    return { context: lines.join('\n'), compCount: 0 };
   }
 
   /**
-   * Main context builder — 3-tier strategy:
+   * Main context builder — returns { context, compCount }
    * 1. If a property is selected, find comps within 5 miles
    * 2. If a market/city is detected in the query, filter to that market
    * 3. Fallback: send a market-level summary
@@ -369,7 +477,6 @@ function setActiveProperty(comp) {
       const refLat = _activeProperty.lat;
       const refLng = _activeProperty.lng;
 
-      // Calculate distance for all comps with coordinates
       const nearby = compData
         .filter(c => c.lat && c.lng)
         .map(c => ({ ...c, _dist: distMiles(refLat, refLng, c.lat, c.lng) }))
@@ -391,7 +498,6 @@ function setActiveProperty(comp) {
             return keywords.some(kw => txt.includes(kw));
           });
           if (marketComps.length > 0) {
-            // Sort by date descending, take most recent
             marketComps.sort((a, b) => (b.dt || '').localeCompare(a.dt || ''));
             filtered = marketComps.slice(0, MAX_CONTEXT_COMPS);
             filterDesc = `## ${market} Market Comps — ${filtered.length} of ${marketComps.length} comps`;
@@ -431,7 +537,7 @@ function setActiveProperty(comp) {
       return line;
     });
 
-    return filterDesc + '\n' + lines.join('\n');
+    return { context: filterDesc + '\n' + lines.join('\n'), compCount: filtered.length };
   }
 
   /* ---- helpers ---- */
