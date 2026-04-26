@@ -7,9 +7,9 @@
 const CHAT_PROXY_URL = 'https://cofe-chat-proxy.ejcosculluela26.workers.dev';
 const CHAT_MODEL = 'claude-sonnet-4-20250514';
 
-const SYSTEM_PROMPT = `You are a CRE analyst for COFE Properties. You have access to the company's industrial comp database. Answer questions about nearby sales, rent comps, pricing trends, cap rates, and provide investment analysis. Be concise and specific, citing actual comp data.
+const SYSTEM_PROMPT = `You are a CRE analyst for COFE Properties. You have access to the COMPLETE industrial comp database with over 1,400 comps across Houston, DFW, Miami, Orlando, Tampa, Atlanta, Charlotte, Charleston, Jacksonville, San Antonio, and Austin. The database includes industrial sale comps, lease comps, IOS sale comps, IOS rent comps, deal pipeline, and owned assets. When the user asks about a property, search the full dataset. Always cite specific comp data with addresses, prices, and dates. Be concise.
 
-When data is provided, reference specific properties by address, price, PSF, cap rate, date, etc. If the user asks about a market or area, summarize key metrics (avg PSF, cap rate range, recent activity). Format numbers with commas and dollar signs.`;
+If the user has a property selected on the map, you'll see it noted at the start of their message. Use that context to find nearby comps, analyze pricing, and give investment opinions.`;
 
 /* ---- layer-type labels ---- */
 const LAYER_LABELS = {
@@ -18,20 +18,16 @@ const LAYER_LABELS = {
   ios_pipeline: 'IOS Pipeline', cofe_owned: 'COFE Owned', cofe_sold: 'COFE Sold'
 };
 
-/* ---- market bounding boxes for smart filtering ---- */
-const MARKET_KEYWORDS = {
-  houston: ['houston','sugar land','katy','pasadena','baytown','spring','humble','cypress','tomball','pearland','league city','webster','friendswood','missouri city','stafford'],
-  dfw: ['dallas','fort worth','dfw','arlington','irving','plano','frisco','mckinney','denton','carrollton','lewisville','garland','richardson','grand prairie','mesquite','haltom','richland hills'],
-  miami: ['miami','doral','medley','hialeah','opa-locka','deerfield','pompano','fort lauderdale','oakland park','coral springs','dania','hollywood','pembroke','davie','sunrise','plantation','boca raton','boynton','delray','west palm'],
-  'san antonio': ['san antonio','new braunfels','schertz','converse','live oak','selma'],
-  austin: ['austin','round rock','pflugerville','cedar park','georgetown','san marcos','kyle','buda'],
-  atlanta: ['atlanta','kennesaw','marietta','norcross','duluth','lawrenceville','mcdonough','lithia springs','college park','peachtree','alpharetta','roswell','smyrna','tucker'],
-  orlando: ['orlando','kissimmee','sanford','apopka','ocoee','winter park','lake mary','altamonte'],
-  tampa: ['tampa','st petersburg','clearwater','brandon','lakeland','plant city','riverview','wesley chapel'],
-  charlotte: ['charlotte','concord','huntersville','mooresville','gastonia','rock hill','matthews','mint hill'],
-  charleston: ['charleston','north charleston','mount pleasant','summerville','goose creek','hanahan'],
-  jacksonville: ['jacksonville','orange park','st augustine','fernandina','ponte vedra']
-};
+/* ---- active property (set from map when user clicks a pin) ---- */
+let _activeProperty = null;
+
+/**
+ * Call this from the map when a comp pin is clicked.
+ * Stores the comp so the chat can reference it.
+ */
+function setActiveProperty(comp) {
+  _activeProperty = comp || null;
+}
 
 (function() {
   /* ---- inject styles ---- */
@@ -152,6 +148,7 @@ const MARKET_KEYWORDS = {
   const messages = document.getElementById('cofe-chat-messages');
 
   let compData = null;
+  let fullContext = null; // cached formatted context string
   let conversationHistory = [];
 
   /* ---- toggle ---- */
@@ -187,11 +184,12 @@ const MARKET_KEYWORDS = {
     input.style.height = 'auto';
     sendBtn.disabled = true;
 
-    /* load comp data on first message */
+    /* load comp data on first message and build full context once */
     if (!compData) {
       try {
         const resp = await fetch('data.json');
         compData = await resp.json();
+        fullContext = buildFullContext();
       } catch (e) {
         addMsg('error', 'Failed to load comp data.');
         sendBtn.disabled = false;
@@ -199,8 +197,22 @@ const MARKET_KEYWORDS = {
       }
     }
 
-    /* smart filter: find relevant comps based on user query */
-    const context = buildContext(text);
+    /* build the message content, prepending active property if set */
+    let messageContent = text;
+    if (_activeProperty) {
+      const p = _activeProperty;
+      const parts = [];
+      if (p.a) parts.push(p.a);
+      if (p.m) parts.push(p.m);
+      if (p.p) parts.push(p.p);
+      if (p.psf) parts.push(p.psf);
+      if (p.sf) parts.push(p.sf);
+      if (p.cap) parts.push('Cap: ' + p.cap);
+      if (p.dt) parts.push('Date: ' + p.dt);
+      if (p.cls) parts.push('Class ' + p.cls);
+      if (p.l) parts.push(LAYER_LABELS[p.l] || p.l);
+      messageContent = `[Currently viewing on map: ${parts.join(', ')}]\n\n${text}`;
+    }
 
     const typing = document.createElement('div');
     typing.className = 'chat-typing';
@@ -208,7 +220,7 @@ const MARKET_KEYWORDS = {
     messages.appendChild(typing);
     messages.scrollTop = messages.scrollHeight;
 
-    conversationHistory.push({ role: 'user', content: text });
+    conversationHistory.push({ role: 'user', content: messageContent });
 
     try {
       const resp = await fetch(CHAT_PROXY_URL, {
@@ -217,7 +229,7 @@ const MARKET_KEYWORDS = {
         body: JSON.stringify({
           model: CHAT_MODEL,
           max_tokens: 1024,
-          system: SYSTEM_PROMPT + '\n\n## Comp Database Context\n' + context,
+          system: SYSTEM_PROMPT + '\n\n## Complete Comp Database (' + compData.length + ' entries)\n' + fullContext,
           messages: conversationHistory
         })
       });
@@ -242,56 +254,13 @@ const MARKET_KEYWORDS = {
     input.focus();
   }
 
-  /* ---- smart context builder ---- */
-  function buildContext(query) {
-    const q = query.toLowerCase();
-
-    /* detect market from query */
-    let matchedMarket = null;
-    for (const [market, keywords] of Object.entries(MARKET_KEYWORDS)) {
-      if (keywords.some(kw => q.includes(kw))) { matchedMarket = market; break; }
-    }
-
-    /* detect layer type from query */
-    let typeFilter = null;
-    if (/\b(sale|sold|bought|purchase)\b/i.test(q)) typeFilter = ['ind_sale', 'ios_sale'];
-    else if (/\b(lease|rent|tenant)\b/i.test(q)) typeFilter = ['ind_lease', 'ios_rent'];
-    else if (/\b(pipeline|deal|under contract|loi)\b/i.test(q)) typeFilter = ['ios_pipeline'];
-    else if (/\b(owned|cofe asset|our propert)/i.test(q)) typeFilter = ['cofe_owned', 'cofe_sold'];
-    else if (/\bios\b/i.test(q)) typeFilter = ['ios_sale', 'ios_rent', 'ios_pipeline'];
-
-    /* filter comps */
-    let filtered = compData;
-
-    if (matchedMarket) {
-      const kws = MARKET_KEYWORDS[matchedMarket];
-      filtered = filtered.filter(c => {
-        const txt = ((c.m || '') + ' ' + (c.sm || '') + ' ' + (c.a || '')).toLowerCase();
-        return kws.some(kw => txt.includes(kw));
-      });
-    }
-
-    if (typeFilter) {
-      filtered = filtered.filter(c => typeFilter.includes(c.l));
-    }
-
-    /* if still too many, take the most recent 150 */
-    if (filtered.length > 150) {
-      filtered.sort((a, b) => (b.dt || '').localeCompare(a.dt || ''));
-      filtered = filtered.slice(0, 150);
-    }
-
-    /* if no filters matched, send a summary instead of everything */
-    if (!matchedMarket && !typeFilter) {
-      filtered.sort((a, b) => (b.dt || '').localeCompare(a.dt || ''));
-      filtered = filtered.slice(0, 100);
-    }
-
-    /* format comps compactly */
-    const lines = filtered.map(c => {
+  /* ---- build full database context (called once) ---- */
+  function buildFullContext() {
+    const lines = compData.map(c => {
       const parts = [LAYER_LABELS[c.l] || c.l];
       if (c.a) parts.push(c.a);
       if (c.m) parts.push(c.m);
+      if (c.sm) parts.push(c.sm);
       if (c.dt) parts.push(c.dt);
       if (c.sf) parts.push(c.sf);
       if (c.p) parts.push(c.p);
@@ -300,15 +269,11 @@ const MARKET_KEYWORDS = {
       if (c.cls) parts.push('Class ' + c.cls);
       if (c.status) parts.push(c.status);
       if (c.rent) parts.push('Rent: ' + c.rent);
+      if (c.total_ac) parts.push(c.total_ac + ' AC');
+      if (c.target) parts.push('Target: ' + c.target);
       return parts.join(' | ');
     });
-
-    const header = `${filtered.length} comps returned` +
-      (matchedMarket ? ` (market: ${matchedMarket})` : '') +
-      (typeFilter ? ` (type: ${typeFilter.join(', ')})` : '') +
-      ` out of ${compData.length} total in database.\n`;
-
-    return header + lines.join('\n');
+    return lines.join('\n');
   }
 
   /* ---- helpers ---- */

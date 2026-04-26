@@ -726,6 +726,9 @@
         })();
 
         function setDetailPanel(comp) {
+            // Notify the chat widget which property is selected
+            if (typeof setActiveProperty === 'function') setActiveProperty(comp);
+
             const panel = document.getElementById('detail-panel');
             // Exit SV full-bleed mode, remove overlay label
             panel.classList.remove('sv-mode', 'minimized');
