@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>COFE Properties — Deal Pipeline</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:#0b1220; color:#e2e8f0; font-family:'Segoe UI',system-ui,sans-serif; min-height:100vh; }
+
+header {
+  background:#1e1e2e; border-bottom:1px solid #2a2a4a; padding:16px 24px;
+  display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;
+}
+header .left { display:flex; align-items:center; gap:16px; }
+header .back { color:#63b3ed; text-decoration:none; font-size:13px; font-weight:600; transition:color .15s; }
+header .back:hover { color:#90cdf4; }
+header h1 { font-size:18px; font-weight:700; color:#e2e8f0; }
+header h1 span { color:#f6ad55; }
+header .actions { display:flex; gap:10px; }
+header .btn {
+  padding:8px 16px; border-radius:6px; font-size:12px; font-weight:600;
+  cursor:pointer; border:1px solid #3a3a5c; transition:all .15s;
+}
+.btn-add { background:#16162a; color:#a855f7; }
+.btn-add:hover { background:#1e1e3e; }
+.btn-ai { background:#16162a; color:#4ade80; }
+.btn-ai:hover { background:#1e1e3e; }
+
+.summary {
+  padding:12px 24px; display:flex; gap:20px; flex-wrap:wrap; font-size:12px; color:#94a3b8;
+}
+.summary .stat { display:flex; gap:4px; }
+.summary .stat-val { color:#e2e8f0; font-weight:600; }
+
+.grid {
+  display:grid; grid-template-columns:repeat(auto-fill, minmax(340px, 1fr));
+  gap:16px; padding:16px 24px 32px;
+}
+
+.card {
+  background:#1e1e2e; border:1px solid #2a2a4a; border-radius:10px;
+  padding:18px; transition:border-color .15s; display:flex; flex-direction:column; gap:10px;
+}
+.card:hover { border-color:#a855f7; }
+
+.card-header { display:flex; justify-content:space-between; align-items:flex-start; gap:8px; }
+.card-name { font-size:14px; font-weight:700; color:#e2e8f0; line-height:1.3; }
+.card-market { font-size:11px; color:#94a3b8; margin-top:2px; }
+
+.status-badge {
+  font-size:10px; font-weight:700; padding:3px 8px; border-radius:4px;
+  white-space:nowrap; text-transform:uppercase; letter-spacing:.3px;
+}
+.status-uc { background:#f6ad5533; color:#f6ad55; }
+.status-review { background:#63b3ed33; color:#63b3ed; }
+.status-loi { background:#a855f733; color:#a855f7; }
+.status-dead { background:#f5656533; color:#f56565; }
+.status-other { background:#4ade8033; color:#4ade80; }
+
+.card-stats { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+.card-stat { font-size:11px; }
+.card-stat-label { color:#94a3b8; }
+.card-stat-val { color:#e2e8f0; font-weight:600; }
+
+.card-footer { margin-top:auto; padding-top:8px; border-top:1px solid #2a2a4a; display:flex; justify-content:space-between; align-items:center; }
+.card-sub { font-size:10px; color:#64748b; }
+.view-link {
+  font-size:11px; color:#63b3ed; text-decoration:none; font-weight:600; transition:color .15s;
+}
+.view-link:hover { color:#90cdf4; }
+
+.empty {
+  text-align:center; padding:80px 24px; color:#64748b; font-size:14px;
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="left">
+    <a href="index.html" class="back">&#8592; Back to Map</a>
+    <h1><span>COFE</span> Properties &mdash; Deal Pipeline</h1>
+  </div>
+  <div class="actions">
+    <button class="btn btn-add" onclick="alert('Coming in Phase 2')">+ Add Deal</button>
+    <button class="btn btn-ai" onclick="alert('Coming in Phase 2')">&#x1F4AC; Chat with AI</button>
+  </div>
+</header>
+
+<div class="summary" id="summary"></div>
+<div class="grid" id="grid"></div>
+<div class="empty" id="empty" style="display:none">No pipeline deals found.</div>
+
+<script>
+function statusClass(s) {
+  if (!s) return 'status-other';
+  const l = s.toLowerCase();
+  if (l.includes('under contract')) return 'status-uc';
+  if (l.includes('review')) return 'status-review';
+  if (l.includes('loi')) return 'status-loi';
+  if (l.includes('dead') || l.includes('pass')) return 'status-dead';
+  return 'status-other';
+}
+
+fetch('data.json')
+  .then(r => r.json())
+  .then(data => {
+    const deals = data.filter(d => d.l === 'ios_pipeline');
+    if (!deals.length) { document.getElementById('empty').style.display = ''; return; }
+
+    // Summary
+    const total = deals.length;
+    const uc = deals.filter(d => (d.status||'').toLowerCase().includes('under contract')).length;
+    const review = deals.filter(d => (d.status||'').toLowerCase().includes('review')).length;
+    document.getElementById('summary').innerHTML =
+      `<div class="stat">Total: <span class="stat-val">${total}</span></div>` +
+      `<div class="stat">Under Contract: <span class="stat-val">${uc}</span></div>` +
+      `<div class="stat">Reviewing: <span class="stat-val">${review}</span></div>`;
+
+    // Cards
+    const grid = document.getElementById('grid');
+    deals.forEach(d => {
+      const status = d.status || 'Unknown';
+      const mapUrl = d.lat && d.lng ? `index.html?fly=${d.lat},${d.lng}&row=${d.row}` : null;
+      grid.innerHTML += `
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-name">${d.n || d.a || 'Untitled'}</div>
+              <div class="card-market">${d.m || ''}${d.sm ? ' &bull; ' + d.sm : ''}</div>
+            </div>
+            <span class="status-badge ${statusClass(status)}">${status}</span>
+          </div>
+          <div class="card-stats">
+            <div class="card-stat"><span class="card-stat-label">Building SF</span><br><span class="card-stat-val">${d.sf || '—'}</span></div>
+            <div class="card-stat"><span class="card-stat-label">Asking Price</span><br><span class="card-stat-val">${d.p || '—'}</span></div>
+            <div class="card-stat"><span class="card-stat-label">Total Acreage</span><br><span class="card-stat-val">${d.total_ac ? d.total_ac + ' AC' : '—'}</span></div>
+            <div class="card-stat"><span class="card-stat-label">Target Price</span><br><span class="card-stat-val">${d.target || '—'}</span></div>
+            <div class="card-stat"><span class="card-stat-label">Price/Usable AC</span><br><span class="card-stat-val">${d.price_usable_ac || '—'}</span></div>
+            <div class="card-stat"><span class="card-stat-label">Zoning</span><br><span class="card-stat-val">${d.zoning || '—'}</span></div>
+          </div>
+          <div class="card-footer">
+            <span class="card-sub">${d.year_built ? 'Built ' + d.year_built : ''}</span>
+            ${mapUrl ? '<a href="' + mapUrl + '" class="view-link">View on Map &#8594;</a>' : '<span class="card-sub">No coordinates</span>'}
+          </div>
+        </div>`;
+    });
+  })
+  .catch(err => {
+    document.getElementById('empty').style.display = '';
+    document.getElementById('empty').textContent = 'Error loading data: ' + err.message;
+  });
+</script>
+</body>
+</html>
