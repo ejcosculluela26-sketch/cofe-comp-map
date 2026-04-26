@@ -5,9 +5,13 @@
 
 /* Set this to your deployed Cloudflare Worker URL */
 const CHAT_PROXY_URL = 'https://cofe-chat-proxy.ejcosculluela26.workers.dev';
-const CHAT_MODEL = 'claude-sonnet-4-20250514';
+const CHAT_MODEL = 'claude-haiku-4-5-20251001';
+const MAX_CONTEXT_COMPS = 200;
+const NEARBY_MILES = 5;
 
-const SYSTEM_PROMPT = `You are a CRE analyst for COFE Properties. You have access to the COMPLETE industrial comp database with over 1,400 comps across Houston, DFW, Miami, Orlando, Tampa, Atlanta, Charlotte, Charleston, Jacksonville, San Antonio, and Austin. The database includes industrial sale comps, lease comps, IOS sale comps, IOS rent comps, deal pipeline, and owned assets. When the user asks about a property, search the full dataset. Always cite specific comp data with addresses, prices, and dates. Be concise.
+const SYSTEM_PROMPT = `You are a CRE analyst for COFE Properties. You have access to a filtered subset of the company's industrial comp database (1,400+ comps across Houston, DFW, Miami, Orlando, Tampa, Atlanta, Charlotte, Charleston, Jacksonville, San Antonio, and Austin). The database includes industrial sale comps, lease comps, IOS sale comps, IOS rent comps, deal pipeline, and owned assets.
+
+The comps provided are filtered to be relevant to the user's question — either nearby the selected property (within 5 miles), matching the market they asked about, or a market-level summary. Always cite specific comp data with addresses, prices, and dates. Be concise.
 
 If the user has a property selected on the map, you'll see it noted at the start of their message. Use that context to find nearby comps, analyze pricing, and give investment opinions.`;
 
@@ -16,6 +20,21 @@ const LAYER_LABELS = {
   ind_sale: 'Industrial Sale', ind_lease: 'Industrial Lease',
   ios_sale: 'IOS Sale', ios_rent: 'IOS Rent',
   ios_pipeline: 'IOS Pipeline', cofe_owned: 'COFE Owned', cofe_sold: 'COFE Sold'
+};
+
+/* ---- market keyword map for query detection ---- */
+const MARKET_KEYWORDS = {
+  Houston: ['houston','sugar land','katy','pasadena','baytown','spring','humble','cypress','tomball','pearland','league city','webster','friendswood','missouri city','stafford','bellaire'],
+  DFW: ['dallas','fort worth','dfw','arlington','irving','plano','frisco','mckinney','denton','carrollton','lewisville','garland','richardson','grand prairie','mesquite','haltom','richland hills'],
+  Miami: ['miami','doral','medley','hialeah','opa-locka','deerfield','pompano','fort lauderdale','oakland park','coral springs','dania','hollywood','pembroke','davie','sunrise','plantation','boca raton','boynton','delray','west palm','south florida'],
+  'San Antonio': ['san antonio','new braunfels','schertz','converse','live oak','selma'],
+  Austin: ['austin','round rock','pflugerville','cedar park','georgetown','san marcos','kyle','buda'],
+  Atlanta: ['atlanta','kennesaw','marietta','norcross','duluth','lawrenceville','mcdonough','lithia springs','college park','peachtree','alpharetta','roswell','smyrna','tucker'],
+  Orlando: ['orlando','kissimmee','sanford','apopka','ocoee','winter park','lake mary','altamonte'],
+  Tampa: ['tampa','st petersburg','clearwater','brandon','lakeland','plant city','riverview','wesley chapel'],
+  Charlotte: ['charlotte','concord','huntersville','mooresville','gastonia','rock hill','matthews','mint hill'],
+  Charleston: ['charleston','north charleston','mount pleasant','summerville','goose creek','hanahan'],
+  Jacksonville: ['jacksonville','orange park','st augustine','fernandina','ponte vedra']
 };
 
 /* ---- active property (set from map when user clicks a pin) ---- */
@@ -148,7 +167,6 @@ function setActiveProperty(comp) {
   const messages = document.getElementById('cofe-chat-messages');
 
   let compData = null;
-  let fullContext = null; // cached formatted context string
   let conversationHistory = [];
 
   /* ---- toggle ---- */
@@ -184,18 +202,20 @@ function setActiveProperty(comp) {
     input.style.height = 'auto';
     sendBtn.disabled = true;
 
-    /* load comp data on first message and build full context once */
+    /* load comp data on first message */
     if (!compData) {
       try {
         const resp = await fetch('data.json');
         compData = await resp.json();
-        fullContext = buildFullContext();
       } catch (e) {
         addMsg('error', 'Failed to load comp data.');
         sendBtn.disabled = false;
         return;
       }
     }
+
+    /* build filtered context */
+    const context = buildContext(text);
 
     /* build the message content, prepending active property if set */
     let messageContent = text;
@@ -229,7 +249,7 @@ function setActiveProperty(comp) {
         body: JSON.stringify({
           model: CHAT_MODEL,
           max_tokens: 1024,
-          system: SYSTEM_PROMPT + '\n\n## Complete Comp Database (' + compData.length + ' entries)\n' + fullContext,
+          system: SYSTEM_PROMPT + '\n\n' + context,
           messages: conversationHistory
         })
       });
@@ -254,26 +274,164 @@ function setActiveProperty(comp) {
     input.focus();
   }
 
-  /* ---- build full database context (called once) ---- */
-  function buildFullContext() {
-    const lines = compData.map(c => {
-      const parts = [LAYER_LABELS[c.l] || c.l];
-      if (c.a) parts.push(c.a);
-      if (c.m) parts.push(c.m);
-      if (c.sm) parts.push(c.sm);
-      if (c.dt) parts.push(c.dt);
-      if (c.sf) parts.push(c.sf);
-      if (c.p) parts.push(c.p);
-      if (c.psf) parts.push(c.psf);
-      if (c.cap) parts.push('Cap: ' + c.cap);
-      if (c.cls) parts.push('Class ' + c.cls);
-      if (c.status) parts.push(c.status);
-      if (c.rent) parts.push('Rent: ' + c.rent);
-      if (c.total_ac) parts.push(c.total_ac + ' AC');
-      if (c.target) parts.push('Target: ' + c.target);
-      return parts.join(' | ');
+  /* ============================================================
+     CONTEXT BUILDER — 3-tier filtering strategy
+     ============================================================ */
+
+  /**
+   * Haversine distance in miles between two lat/lng points.
+   */
+  function distMiles(lat1, lng1, lat2, lng2) {
+    const R = 3958.8; // Earth radius in miles
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) ** 2 +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLng / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  }
+
+  /**
+   * Format a single comp as a pipe-delimited line.
+   */
+  function formatComp(c) {
+    const parts = [LAYER_LABELS[c.l] || c.l];
+    if (c.a) parts.push(c.a);
+    if (c.m) parts.push(c.m);
+    if (c.sm) parts.push(c.sm);
+    if (c.dt) parts.push(c.dt);
+    if (c.sf) parts.push(c.sf);
+    if (c.p) parts.push(c.p);
+    if (c.psf) parts.push(c.psf);
+    if (c.cap) parts.push('Cap: ' + c.cap);
+    if (c.cls) parts.push('Class ' + c.cls);
+    if (c.status) parts.push(c.status);
+    if (c.rent) parts.push('Rent: ' + c.rent);
+    if (c.total_ac) parts.push(c.total_ac + ' AC');
+    if (c.target) parts.push('Target: ' + c.target);
+    return parts.join(' | ');
+  }
+
+  /**
+   * Build a market-level summary (fallback when no specific filter applies).
+   */
+  function buildMarketSummary() {
+    const markets = {};
+    compData.forEach(c => {
+      const m = c.m || 'Unknown';
+      if (!markets[m]) markets[m] = { count: 0, layers: {}, prices: [], psfs: [] };
+      markets[m].count++;
+      markets[m].layers[c.l] = (markets[m].layers[c.l] || 0) + 1;
+      // Parse numeric price
+      if (c.p) {
+        const num = parseFloat(c.p.replace(/[$,]/g, ''));
+        if (!isNaN(num) && num > 0) markets[m].prices.push(num);
+      }
+      if (c.psf) {
+        const num = parseFloat(c.psf.replace(/[$,/SF]/gi, ''));
+        if (!isNaN(num) && num > 0) markets[m].psfs.push(num);
+      }
     });
+
+    const lines = [`## Database Summary (${compData.length} total comps)\n`];
+    for (const [m, d] of Object.entries(markets).sort((a, b) => b[1].count - a[1].count)) {
+      const layerStr = Object.entries(d.layers).map(([l, n]) => `${LAYER_LABELS[l] || l}: ${n}`).join(', ');
+      let stats = `${d.count} comps (${layerStr})`;
+      if (d.psfs.length > 0) {
+        const avg = d.psfs.reduce((a, b) => a + b, 0) / d.psfs.length;
+        const min = Math.min(...d.psfs);
+        const max = Math.max(...d.psfs);
+        stats += ` | PSF: $${min.toFixed(0)}-$${max.toFixed(0)} (avg $${avg.toFixed(0)})`;
+      }
+      if (d.prices.length > 0) {
+        const avg = d.prices.reduce((a, b) => a + b, 0) / d.prices.length;
+        stats += ` | Avg Price: $${(avg / 1e6).toFixed(1)}M`;
+      }
+      lines.push(`${m}: ${stats}`);
+    }
+    lines.push('\nAsk about a specific market or click a property on the map for detailed comp data.');
     return lines.join('\n');
+  }
+
+  /**
+   * Main context builder — 3-tier strategy:
+   * 1. If a property is selected, find comps within 5 miles
+   * 2. If a market/city is detected in the query, filter to that market
+   * 3. Fallback: send a market-level summary
+   */
+  function buildContext(query) {
+    const q = query.toLowerCase();
+    let filtered = null;
+    let filterDesc = '';
+
+    /* --- Tier 1: Nearby comps if a property is selected --- */
+    if (_activeProperty && _activeProperty.lat && _activeProperty.lng) {
+      const refLat = _activeProperty.lat;
+      const refLng = _activeProperty.lng;
+
+      // Calculate distance for all comps with coordinates
+      const nearby = compData
+        .filter(c => c.lat && c.lng)
+        .map(c => ({ ...c, _dist: distMiles(refLat, refLng, c.lat, c.lng) }))
+        .filter(c => c._dist <= NEARBY_MILES)
+        .sort((a, b) => a._dist - b._dist);
+
+      if (nearby.length > 0) {
+        filtered = nearby.slice(0, MAX_CONTEXT_COMPS);
+        filterDesc = `## Nearby Comps (within ${NEARBY_MILES} mi of ${_activeProperty.a || 'selected property'}) — ${filtered.length} of ${nearby.length} comps`;
+      }
+    }
+
+    /* --- Tier 2: Market detection from query --- */
+    if (!filtered) {
+      for (const [market, keywords] of Object.entries(MARKET_KEYWORDS)) {
+        if (keywords.some(kw => q.includes(kw))) {
+          const marketComps = compData.filter(c => {
+            const txt = ((c.m || '') + ' ' + (c.sm || '') + ' ' + (c.a || '')).toLowerCase();
+            return keywords.some(kw => txt.includes(kw));
+          });
+          if (marketComps.length > 0) {
+            // Sort by date descending, take most recent
+            marketComps.sort((a, b) => (b.dt || '').localeCompare(a.dt || ''));
+            filtered = marketComps.slice(0, MAX_CONTEXT_COMPS);
+            filterDesc = `## ${market} Market Comps — ${filtered.length} of ${marketComps.length} comps`;
+            break;
+          }
+        }
+      }
+    }
+
+    /* --- Also check for layer-type keywords to further refine --- */
+    if (filtered) {
+      let typeFilter = null;
+      if (/\b(sale|sold|bought|purchase)\b/i.test(q)) typeFilter = ['ind_sale', 'ios_sale'];
+      else if (/\b(lease|rent|tenant)\b/i.test(q)) typeFilter = ['ind_lease', 'ios_rent'];
+      else if (/\b(pipeline|deal|under contract|loi)\b/i.test(q)) typeFilter = ['ios_pipeline'];
+      else if (/\b(owned|cofe asset|our propert)/i.test(q)) typeFilter = ['cofe_owned', 'cofe_sold'];
+      else if (/\bios\b/i.test(q)) typeFilter = ['ios_sale', 'ios_rent', 'ios_pipeline'];
+
+      if (typeFilter) {
+        const typed = filtered.filter(c => typeFilter.includes(c.l));
+        if (typed.length > 0) {
+          filtered = typed.slice(0, MAX_CONTEXT_COMPS);
+          filterDesc += ` (filtered to ${typeFilter.map(t => LAYER_LABELS[t] || t).join(', ')}: ${filtered.length} comps)`;
+        }
+      }
+    }
+
+    /* --- Tier 3: Fallback — market summary --- */
+    if (!filtered) {
+      return buildMarketSummary();
+    }
+
+    /* Format filtered comps */
+    const lines = filtered.map(c => {
+      let line = formatComp(c);
+      if (c._dist !== undefined) line += ` | ${c._dist.toFixed(1)} mi`;
+      return line;
+    });
+
+    return filterDesc + '\n' + lines.join('\n');
   }
 
   /* ---- helpers ---- */
