@@ -3,7 +3,8 @@
    Drop <script src="chat.js"></script> before </body> on any page.
    ============================================================ */
 
-const ANTHROPIC_API_KEY = 'REPLACE_WITH_API_KEY';
+/* Set this to your deployed Cloudflare Worker URL */
+const CHAT_PROXY_URL = 'REPLACE_WITH_WORKER_URL'; // e.g. https://cofe-chat-proxy.<your-subdomain>.workers.dev
 const CHAT_MODEL = 'claude-sonnet-4-20250514';
 
 const SYSTEM_PROMPT = `You are a CRE analyst for COFE Properties. You have access to the company's industrial comp database. Answer questions about nearby sales, rent comps, pricing trends, cap rates, and provide investment analysis. Be concise and specific, citing actual comp data.
@@ -176,8 +177,8 @@ const MARKET_KEYWORDS = {
     const text = input.value.trim();
     if (!text) return;
 
-    if (ANTHROPIC_API_KEY === 'REPLACE_WITH_API_KEY') {
-      addMsg('error', 'API key not configured. Edit the ANTHROPIC_API_KEY variable in chat.js.');
+    if (CHAT_PROXY_URL === 'REPLACE_WITH_WORKER_URL') {
+      addMsg('error', 'Chat proxy not configured. Set CHAT_PROXY_URL in chat.js to your Cloudflare Worker URL.');
       return;
     }
 
@@ -210,14 +211,9 @@ const MARKET_KEYWORDS = {
     conversationHistory.push({ role: 'user', content: text });
 
     try {
-      const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      const resp = await fetch(CHAT_PROXY_URL, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': ANTHROPIC_API_KEY,
-          'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-direct-browser-access': 'true'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: CHAT_MODEL,
           max_tokens: 1024,
