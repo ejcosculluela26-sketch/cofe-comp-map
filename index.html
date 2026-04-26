@@ -373,6 +373,7 @@
             .detail-grid { grid-template-columns: 1fr !important; }
         }
     </style>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDORG5-WO8cXhXGU_PnyL_W_GxH1tUA4fw&libraries=places" async defer></script>
 </head>
 <body>
     <!-- LEFT SIDEBAR -->
@@ -1460,6 +1461,88 @@
             document.getElementById('searchBox').value = '';
             refreshMarkers();
         });
+
+        // ==========================================
+        // GOOGLE PLACES AUTOCOMPLETE
+        // ==========================================
+        (function initPlacesAutocomplete() {
+            function setup() {
+                if (typeof google === 'undefined' || !google.maps || !google.maps.places) {
+                    setTimeout(setup, 200);
+                    return;
+                }
+                const searchInput = document.getElementById('searchBox');
+                const autocomplete = new google.maps.places.Autocomplete(searchInput, {
+                    componentRestrictions: { country: 'us' },
+                    fields: ['geometry', 'formatted_address', 'name']
+                });
+
+                // Bias results to current map viewport
+                map.on('moveend', () => {
+                    const b = map.getBounds();
+                    autocomplete.setBounds(new google.maps.LatLngBounds(
+                        { lat: b.getSouth(), lng: b.getWest() },
+                        { lat: b.getNorth(), lng: b.getEast() }
+                    ));
+                });
+
+                // Prevent form submission / Go button when selecting from dropdown
+                let placePicked = false;
+                searchInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' && document.querySelector('.pac-container:not([style*="display: none"])')) {
+                        e.stopImmediatePropagation();
+                    }
+                }, true); // capture phase — runs before the existing Enter handler
+
+                autocomplete.addListener('place_changed', () => {
+                    const place = autocomplete.getPlace();
+                    if (!place.geometry || !place.geometry.location) return;
+
+                    placePicked = true;
+                    const lat = place.geometry.location.lat();
+                    const lng = place.geometry.location.lng();
+                    const addr = place.formatted_address || place.name || '';
+
+                    // Clear old marker, fly to location
+                    clearSearchMarker();
+                    map.flyTo([lat, lng], 15, { duration: 1.2 });
+
+                    // Drop a red marker
+                    searchMarker = L.marker([lat, lng], {
+                        icon: L.divIcon({
+                            html: '<div style="background:#ef4444;width:14px;height:14px;border-radius:50%;border:3px solid white;box-shadow:0 0 6px rgba(0,0,0,0.5);"></div>',
+                            className: '',
+                            iconSize: [14, 14],
+                            iconAnchor: [7, 7]
+                        })
+                    }).addTo(map);
+                    searchMarker.bindPopup(`<div style="font-size:13px;"><strong>Searched Location</strong><br>${addr}<br><span style="color:#888;font-size:11px;">${lat.toFixed(6)}, ${lng.toFixed(6)}</span></div>`).openPopup();
+                    document.getElementById('searchClearBtn').style.display = 'inline-block';
+
+                    // Highlight nearby comps (within ~2 miles)
+                    const R = 3958.8;
+                    markers.forEach(({marker, comp}) => {
+                        if (!comp.lat || !comp.lng) return;
+                        const dLat = (comp.lat - lat) * Math.PI / 180;
+                        const dLng = (comp.lng - lng) * Math.PI / 180;
+                        const a = Math.sin(dLat/2)**2 + Math.cos(lat*Math.PI/180)*Math.cos(comp.lat*Math.PI/180)*Math.sin(dLng/2)**2;
+                        const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                        if (dist <= 2) {
+                            marker.setOpacity(1);
+                            if (marker._icon) marker._icon.style.filter = 'brightness(1.3) drop-shadow(0 0 4px #3b82f6)';
+                        }
+                    });
+
+                    setTimeout(() => { placePicked = false; }, 100);
+                });
+
+                // Override pac-container z-index to show above sidebar
+                const styleOverride = document.createElement('style');
+                styleOverride.textContent = '.pac-container { z-index: 10000 !important; }';
+                document.head.appendChild(styleOverride);
+            }
+            setup();
+        })();
 
         // ==========================================
         // PARCEL QUERY LAYER
