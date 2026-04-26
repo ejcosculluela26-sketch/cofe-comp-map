@@ -19,7 +19,7 @@ If the user has a property selected on the map, you'll see it noted at the start
 const LAYER_LABELS = {
   ind_sale: 'Industrial Sale', ind_lease: 'Industrial Lease',
   ios_sale: 'IOS Sale', ios_rent: 'IOS Rent',
-  ios_pipeline: 'IOS Pipeline', cofe_owned: 'COFE Owned', cofe_sold: 'COFE Sold'
+  ios_pipeline: 'IOS Pipeline', ind_pipeline: 'Ind. Pipeline', cofe_owned: 'COFE Owned', cofe_sold: 'COFE Sold'
 };
 
 /* ---- market keyword map for query detection ---- */
@@ -512,7 +512,7 @@ function setActiveProperty(comp) {
       let typeFilter = null;
       if (/\b(sale|sold|bought|purchase)\b/i.test(q)) typeFilter = ['ind_sale', 'ios_sale'];
       else if (/\b(lease|rent|tenant)\b/i.test(q)) typeFilter = ['ind_lease', 'ios_rent'];
-      else if (/\b(pipeline|deal|under contract|loi)\b/i.test(q)) typeFilter = ['ios_pipeline'];
+      else if (/\b(pipeline|deal|under contract|loi)\b/i.test(q)) typeFilter = ['ios_pipeline', 'ind_pipeline'];
       else if (/\b(owned|cofe asset|our propert)/i.test(q)) typeFilter = ['cofe_owned', 'cofe_sold'];
       else if (/\bios\b/i.test(q)) typeFilter = ['ios_sale', 'ios_rent', 'ios_pipeline'];
 

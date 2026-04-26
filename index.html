@@ -548,6 +548,7 @@
             ios_sale:    { name: 'IOS Sale', color: '#f97316' },
             ios_rent:    { name: 'IOS Rent', color: '#22c55e' },
             ios_pipeline:{ name: 'IOS Pipeline', color: '#a855f7' },
+            ind_pipeline:{ name: 'Ind. Pipeline', color: '#6366f1' },
             cofe_owned:  { name: 'COFE Owned', color: '#facc15', star: true },
             cofe_sold:   { name: 'COFE Sold', color: '#ef4444', star: true }
         };
@@ -790,7 +791,7 @@
                     <div class="detail-full"><div class="detail-label">Tenant Type</div><div class="detail-value">${comp.tenant_type || 'N/A'}</div></div>
                     <div class="detail-full"><div class="detail-label">Address</div><div class="detail-value">${comp.a || 'N/A'}</div></div>
                 `;
-            } else if (comp.l === 'ios_pipeline') {
+            } else if (comp.l === 'ios_pipeline' || comp.l === 'ind_pipeline') {
                 rows = `
                     <div class="detail-label">Asking Price</div><div class="detail-label">Target Price</div>
                     <div class="detail-value price">${comp.p || 'N/A'}</div><div class="detail-value">${comp.target || 'N/A'}</div>

@@ -58,6 +58,13 @@ header .btn {
 .status-dead { background:#f5656533; color:#f56565; }
 .status-other { background:#4ade8033; color:#4ade80; }
 
+.type-badge {
+  font-size:9px; font-weight:700; padding:2px 6px; border-radius:3px;
+  text-transform:uppercase; letter-spacing:.3px; margin-left:6px;
+}
+.type-ios { background:#a855f733; color:#a855f7; }
+.type-ind { background:#6366f133; color:#6366f1; }
+
 .card-stats { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
 .card-stat { font-size:11px; }
 .card-stat-label { color:#94a3b8; }
@@ -105,15 +112,19 @@ function statusClass(s) {
 fetch('data.json')
   .then(r => r.json())
   .then(data => {
-    const deals = data.filter(d => d.l === 'ios_pipeline');
+    const deals = data.filter(d => d.l === 'ios_pipeline' || d.l === 'ind_pipeline');
     if (!deals.length) { document.getElementById('empty').style.display = ''; return; }
 
     // Summary
     const total = deals.length;
+    const iosCount = deals.filter(d => d.l === 'ios_pipeline').length;
+    const indCount = deals.filter(d => d.l === 'ind_pipeline').length;
     const uc = deals.filter(d => (d.status||'').toLowerCase().includes('under contract')).length;
     const review = deals.filter(d => (d.status||'').toLowerCase().includes('review')).length;
     document.getElementById('summary').innerHTML =
       `<div class="stat">Total: <span class="stat-val">${total}</span></div>` +
+      `<div class="stat">IOS: <span class="stat-val">${iosCount}</span></div>` +
+      `<div class="stat">Industrial: <span class="stat-val">${indCount}</span></div>` +
       `<div class="stat">Under Contract: <span class="stat-val">${uc}</span></div>` +
       `<div class="stat">Reviewing: <span class="stat-val">${review}</span></div>`;
 
@@ -121,12 +132,14 @@ fetch('data.json')
     const grid = document.getElementById('grid');
     deals.forEach(d => {
       const status = d.status || 'Unknown';
+      const isIOS = d.l === 'ios_pipeline';
+      const typeBadge = isIOS ? '<span class="type-badge type-ios">IOS</span>' : '<span class="type-badge type-ind">Industrial</span>';
       const mapUrl = d.lat && d.lng ? `index.html?fly=${d.lat},${d.lng}&row=${d.row}` : null;
       grid.innerHTML += `
         <div class="card">
           <div class="card-header">
             <div>
-              <div class="card-name">${d.n || d.a || 'Untitled'}</div>
+              <div class="card-name">${d.n || d.a || 'Untitled'}${typeBadge}</div>
               <div class="card-market">${d.m || ''}${d.sm ? ' &bull; ' + d.sm : ''}</div>
             </div>
             <span class="status-badge ${statusClass(status)}">${status}</span>
