@@ -4,7 +4,7 @@
    ============================================================ */
 
 /* Set this to your deployed Cloudflare Worker URL */
-const CHAT_PROXY_URL = 'REPLACE_WITH_WORKER_URL'; // e.g. https://cofe-chat-proxy.<your-subdomain>.workers.dev
+const CHAT_PROXY_URL = 'https://cofe-chat-proxy.ejcosculluela26.workers.dev';
 const CHAT_MODEL = 'claude-sonnet-4-20250514';
 
 const SYSTEM_PROMPT = `You are a CRE analyst for COFE Properties. You have access to the company's industrial comp database. Answer questions about nearby sales, rent comps, pricing trends, cap rates, and provide investment analysis. Be concise and specific, citing actual comp data.
