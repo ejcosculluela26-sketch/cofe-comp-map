@@ -985,6 +985,7 @@
                 { name: 'Charlotte', lat: 35.23, lng: -80.84 },
                 { name: 'Charleston', lat: 32.78, lng: -79.93 },
                 { name: 'Jacksonville', lat: 30.33, lng: -81.66 },
+                { name: 'Virginia', lat: 38.85, lng: -77.30 },
             ];
             var marketEls = [];
             markets.forEach(function(c) {
@@ -1004,7 +1005,8 @@
             var skipCities = {
                 'houston': true, 'dallas': true, 'san antonio': true, 'austin': true,
                 'miami': true, 'orlando': true, 'tampa': true, 'atlanta': true,
-                'charlotte': true, 'charleston': true, 'jacksonville': true
+                'charlotte': true, 'charleston': true, 'jacksonville': true,
+                'virginia': true
             };
 
             function extractCity(addr) {
@@ -1604,6 +1606,38 @@
                 bounds: { latMin:28.0, latMax:29.0, lngMin:-82.0, lngMax:-81.0 },
                 url: 'https://www.ocgis.com/arcpub/rest/services/Map_Layers/Parcels/MapServer/0/query',
                 fieldMap: { address:'SITE_ADDRESS', parcelId:'ASSESSMENT_NO', yearBuilt:'YEAR_BUILT' }
+            },
+            {
+                name: 'Prince William County', state: 'VA',
+                bounds: { latMin:38.5, latMax:38.95, lngMin:-77.8, lngMax:-77.2 },
+                url: 'https://gisweb.pwcva.gov/arcgis/rest/services/CountyMapper/LandRecords/MapServer/4/query',
+                fieldMap: { parcelId:'GPIN', address:'ADDRESS' }
+            },
+            {
+                name: 'Fairfax County', state: 'VA',
+                bounds: { latMin:38.6, latMax:39.0, lngMin:-77.6, lngMax:-77.1 },
+                url: 'https://www.fairfaxcounty.gov/mercator/rest/services/OpenData/OpenData_A9/MapServer/0/query',
+                fieldMap: { parcelId:'PIN' }
+            },
+            {
+                name: 'City of Norfolk', state: 'VA',
+                bounds: { latMin:36.82, latMax:36.97, lngMin:-76.35, lngMax:-76.15 },
+                url: 'https://gisshare.norfolk.gov/pubserver/rest/services/OpenData/Parcels/FeatureServer/0/query',
+                fieldMap: { parcelId:'TAX_ACCT', address:'HSE_NUM,STREET' }
+            },
+            {
+                name: 'City of Chesapeake', state: 'VA',
+                bounds: { latMin:36.55, latMax:36.85, lngMin:-76.45, lngMax:-76.1 },
+                url: 'https://gis.cityofchesapeake.net/mapping/rest/services/Common_Layers/Parcels/MapServer/0/query',
+                fieldMap: { acreage:'CALCACREAGE' }
+            },
+            {
+                name: 'Mecklenburg County', state: 'NC',
+                bounds: { latMin:35.0, latMax:35.5, lngMin:-81.1, lngMax:-80.5 },
+                url: 'https://services.nconemap.gov/secure/rest/services/NC1Map_Parcels/FeatureServer/1/query',
+                fieldMap: { owner:'ownname', address:'siteadd', parcelId:'parno',
+                    acreage:'gisacres', landUse:'parusedesc', landValue:'landval',
+                    totalValue:'parval' }
             }
         ];
 
