@@ -80,6 +80,28 @@ header .btn {
 .empty {
   text-align:center; padding:80px 24px; color:#64748b; font-size:14px;
 }
+
+/* Filter bar */
+.filter-bar {
+  padding:12px 24px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;
+  border-bottom:1px solid #2a2a4a; background:#161628;
+}
+.filter-bar label { font-size:10px; color:#64748b; font-weight:700; text-transform:uppercase; letter-spacing:.8px; }
+.filter-bar select {
+  padding:6px 10px; font-size:12px; border-radius:6px;
+  border:1px solid #3a3a5c; background:#16162a; color:#e0e0e0; outline:none;
+}
+.filter-bar select:focus { border-color:#3b82f6; }
+.filter-count { margin-left:auto; font-size:12px; color:#64748b; }
+.filter-count strong { color:#63b3ed; }
+
+/* Status dropdown on card */
+.status-select {
+  font-size:10px; font-weight:700; padding:3px 6px; border-radius:4px;
+  border:1px solid #3a3a5c; background:#16162a; color:#e0e0e0;
+  cursor:pointer; outline:none; text-transform:uppercase; letter-spacing:.3px;
+}
+.status-select:focus { border-color:#a855f7; }
 </style>
 </head>
 <body>
@@ -94,55 +116,121 @@ header .btn {
   </div>
 </header>
 
+<div class="filter-bar">
+  <label>Status</label>
+  <select id="filterStatus">
+    <option value="active">Active</option>
+    <option value="all">All</option>
+    <option value="Under Contract">Under Contract</option>
+    <option value="Reviewing">Reviewing</option>
+    <option value="LOI">LOI</option>
+    <option value="Passed">Passed</option>
+    <option value="Dead">Dead</option>
+  </select>
+  <label>Type</label>
+  <select id="filterType">
+    <option value="">All Types</option>
+    <option value="ios_pipeline">IOS</option>
+    <option value="ind_pipeline">Industrial</option>
+  </select>
+  <div class="filter-count">Showing <strong id="showCount">0</strong> deals</div>
+</div>
 <div class="summary" id="summary"></div>
 <div class="grid" id="grid"></div>
 <div class="empty" id="empty" style="display:none">No pipeline deals found.</div>
 
 <script>
-function statusClass(s) {
-  if (!s) return 'status-other';
-  const l = s.toLowerCase();
-  if (l.includes('under contract')) return 'status-uc';
-  if (l.includes('review')) return 'status-review';
-  if (l.includes('loi')) return 'status-loi';
-  if (l.includes('dead') || l.includes('pass')) return 'status-dead';
-  return 'status-other';
-}
+(function() {
+  const STATUSES = ['Under Contract', 'Reviewing', 'LOI', 'Passed', 'Dead'];
+  const HIDDEN_STATUSES = ['passed', 'dead']; // hidden in "Active" filter
 
-fetch('data.json')
-  .then(r => r.json())
-  .then(data => {
-    const deals = data.filter(d => d.l === 'ios_pipeline' || d.l === 'ind_pipeline');
-    if (!deals.length) { document.getElementById('empty').style.display = ''; return; }
+  // Local status overrides (browser-side, persists until DB sync)
+  function getOverrides() {
+    try { return JSON.parse(localStorage.getItem('pipeline_status_overrides') || '{}'); } catch { return {}; }
+  }
+  function setOverride(rowId, status) {
+    const o = getOverrides();
+    o[rowId] = status;
+    localStorage.setItem('pipeline_status_overrides', JSON.stringify(o));
+  }
+  function getStatus(deal) {
+    const o = getOverrides();
+    return o[deal.row] || deal.status || 'Unknown';
+  }
 
-    // Summary
-    const total = deals.length;
-    const iosCount = deals.filter(d => d.l === 'ios_pipeline').length;
-    const indCount = deals.filter(d => d.l === 'ind_pipeline').length;
-    const uc = deals.filter(d => (d.status||'').toLowerCase().includes('under contract')).length;
-    const review = deals.filter(d => (d.status||'').toLowerCase().includes('review')).length;
+  function statusClass(s) {
+    if (!s) return 'status-other';
+    const l = s.toLowerCase();
+    if (l.includes('under contract')) return 'status-uc';
+    if (l.includes('review')) return 'status-review';
+    if (l.includes('loi')) return 'status-loi';
+    if (l.includes('dead') || l.includes('pass')) return 'status-dead';
+    return 'status-other';
+  }
+
+  let allDeals = [];
+
+  function renderDeals() {
+    const statusFilter = document.getElementById('filterStatus').value;
+    const typeFilter = document.getElementById('filterType').value;
+    const grid = document.getElementById('grid');
+    const empty = document.getElementById('empty');
+
+    let filtered = allDeals.filter(d => {
+      const st = getStatus(d).toLowerCase();
+      if (statusFilter === 'active') {
+        if (HIDDEN_STATUSES.some(h => st.includes(h))) return false;
+      } else if (statusFilter !== 'all') {
+        if (!st.includes(statusFilter.toLowerCase())) return false;
+      }
+      if (typeFilter && d.l !== typeFilter) return false;
+      return true;
+    });
+
+    document.getElementById('showCount').textContent = filtered.length;
+
+    // Summary (always based on all deals)
+    const total = allDeals.length;
+    const iosCount = allDeals.filter(d => d.l === 'ios_pipeline').length;
+    const indCount = allDeals.filter(d => d.l === 'ind_pipeline').length;
+    const activeCount = allDeals.filter(d => !HIDDEN_STATUSES.some(h => getStatus(d).toLowerCase().includes(h))).length;
+    const passedCount = total - activeCount;
     document.getElementById('summary').innerHTML =
       `<div class="stat">Total: <span class="stat-val">${total}</span></div>` +
+      `<div class="stat">Active: <span class="stat-val">${activeCount}</span></div>` +
       `<div class="stat">IOS: <span class="stat-val">${iosCount}</span></div>` +
       `<div class="stat">Industrial: <span class="stat-val">${indCount}</span></div>` +
-      `<div class="stat">Under Contract: <span class="stat-val">${uc}</span></div>` +
-      `<div class="stat">Reviewing: <span class="stat-val">${review}</span></div>`;
+      `<div class="stat">Passed/Dead: <span class="stat-val">${passedCount}</span></div>`;
 
-    // Cards
-    const grid = document.getElementById('grid');
-    deals.forEach(d => {
-      const status = d.status || 'Unknown';
+    grid.innerHTML = '';
+    if (!filtered.length) { empty.style.display = ''; return; }
+    empty.style.display = 'none';
+
+    filtered.forEach(d => {
+      const status = getStatus(d);
       const isIOS = d.l === 'ios_pipeline';
       const typeBadge = isIOS ? '<span class="type-badge type-ios">IOS</span>' : '<span class="type-badge type-ind">Industrial</span>';
       const mapUrl = d.lat && d.lng ? `index.html?fly=${d.lat},${d.lng}&row=${d.row}` : null;
-      grid.innerHTML += `
-        <div class="card">
+
+      // Build status dropdown
+      let statusOptions = STATUSES.map(s =>
+        `<option value="${s}"${s.toLowerCase() === status.toLowerCase() ? ' selected' : ''}>${s}</option>`
+      ).join('');
+      if (!STATUSES.some(s => s.toLowerCase() === status.toLowerCase())) {
+        statusOptions = `<option value="${status}" selected>${status}</option>` + statusOptions;
+      }
+
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.innerHTML = `
           <div class="card-header">
             <div>
               <div class="card-name">${d.n || d.a || 'Untitled'}${typeBadge}</div>
               <div class="card-market">${d.m || ''}${d.sm ? ' &bull; ' + d.sm : ''}</div>
             </div>
-            <span class="status-badge ${statusClass(status)}">${status}</span>
+            <select class="status-select ${statusClass(status)}" data-row="${d.row}">
+              ${statusOptions}
+            </select>
           </div>
           <div class="card-stats">
             <div class="card-stat"><span class="card-stat-label">Building SF</span><br><span class="card-stat-val">${d.sf || '—'}</span></div>
@@ -155,14 +243,34 @@ fetch('data.json')
           <div class="card-footer">
             <span class="card-sub">${d.year_built ? 'Built ' + d.year_built : ''}</span>
             ${mapUrl ? '<a href="' + mapUrl + '" class="view-link">View on Map &#8594;</a>' : '<span class="card-sub">No coordinates</span>'}
-          </div>
-        </div>`;
+          </div>`;
+      grid.appendChild(card);
     });
-  })
-  .catch(err => {
-    document.getElementById('empty').style.display = '';
-    document.getElementById('empty').textContent = 'Error loading data: ' + err.message;
-  });
+
+    // Attach status change listeners
+    grid.querySelectorAll('.status-select').forEach(sel => {
+      sel.addEventListener('change', function() {
+        setOverride(this.dataset.row, this.value);
+        renderDeals();
+      });
+    });
+  }
+
+  fetch('data.json')
+    .then(r => r.json())
+    .then(data => {
+      allDeals = data.filter(d => d.l === 'ios_pipeline' || d.l === 'ind_pipeline');
+      if (!allDeals.length) { document.getElementById('empty').style.display = ''; return; }
+      renderDeals();
+    })
+    .catch(err => {
+      document.getElementById('empty').style.display = '';
+      document.getElementById('empty').textContent = 'Error loading data: ' + err.message;
+    });
+
+  document.getElementById('filterStatus').addEventListener('change', renderDeals);
+  document.getElementById('filterType').addEventListener('change', renderDeals);
+})();
 </script>
 <script src="chat.js"></script>
 </body>
