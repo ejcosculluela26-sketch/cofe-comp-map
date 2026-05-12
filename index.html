@@ -547,7 +547,7 @@
             ind_lease:   { name: 'Industrial Lease', color: '#eab308' },
             ios_sale:    { name: 'IOS Sale', color: '#f97316' },
             ios_rent:    { name: 'IOS Rent', color: '#22c55e' },
-            land_sale:   { name: 'Land Sale', color: '#84cc16' },
+            land_sale:   { name: 'Land / Spec Industrial', color: '#84cc16', diamond: true },
             ios_pipeline:{ name: 'IOS Pipeline', color: '#a855f7' },
             ind_pipeline:{ name: 'Ind. Pipeline', color: '#6366f1' },
             cofe_owned:  { name: 'COFE Owned', color: '#facc15', star: true },
@@ -618,7 +618,9 @@
             el.className = 'sb-layer active';
             const icon = v.star
                 ? `<span style="color:${v.color};font-size:14px;line-height:10px;">&#9733;</span>`
-                : `<span class="sb-layer-dot" style="background:${v.color}"></span>`;
+                : v.diamond
+                    ? `<span class="sb-layer-dot" style="background:${v.color};border-radius:0;transform:rotate(45deg)"></span>`
+                    : `<span class="sb-layer-dot" style="background:${v.color}"></span>`;
             el.innerHTML = `<div class="sb-layer-left">${icon}<span class="sb-layer-name">${v.name}</span></div><span class="sb-layer-count">${(layerCounts[k]||0).toLocaleString()}</span>`;
             el.dataset.layer = k;
             el.addEventListener('click', () => {
@@ -924,10 +926,16 @@
             if (!comp.lat || !comp.lng) return;
             const color = layerConfig[comp.l]?.color || '#999';
             const isStar = layerConfig[comp.l]?.star;
+            const isDiamond = layerConfig[comp.l]?.diamond;
             const marker = isStar
                 ? L.marker([comp.lat, comp.lng], { icon: L.divIcon({
                     html: `<svg width="24" height="24" viewBox="0 0 24 24"><polygon points="12,2 15,9 22,9 16.5,14 18.5,21 12,17 5.5,21 7.5,14 2,9 9,9" fill="${color}" stroke="#fff" stroke-width="1.5"/></svg>`,
                     className: 'star-marker', iconSize: [24, 24], iconAnchor: [12, 12]
+                  }) })
+                : isDiamond
+                ? L.marker([comp.lat, comp.lng], { icon: L.divIcon({
+                    html: `<svg width="20" height="20" viewBox="0 0 20 20"><polygon points="10,1 19,10 10,19 1,10" fill="${color}" stroke="#fff" stroke-width="1.5"/></svg>`,
+                    className: 'diamond-marker', iconSize: [20, 20], iconAnchor: [10, 10]
                   }) })
                 : L.circleMarker([comp.lat, comp.lng], { color, fillColor: color, fillOpacity: 0.85, radius: 7, weight: 1 });
             marker.bindTooltip(getTooltipHTML(comp), { direction: 'top', offset: [0, -8], opacity: 0.95 });
@@ -2015,10 +2023,16 @@
                         if (!comp.lat || !comp.lng) return;
                         var color = (layerConfig[comp.l] || {}).color || '#999';
                         var isStar = (layerConfig[comp.l] || {}).star;
+                        var isDiamond = (layerConfig[comp.l] || {}).diamond;
                         var marker = isStar
                             ? L.marker([comp.lat, comp.lng], { icon: L.divIcon({
                                 html: '<svg width="24" height="24" viewBox="0 0 24 24"><polygon points="12,2 15,9 22,9 16.5,14 18.5,21 12,17 5.5,21 7.5,14 2,9 9,9" fill="'+color+'" stroke="#fff" stroke-width="1.5"/></svg>',
                                 className: 'star-marker', iconSize: [24, 24], iconAnchor: [12, 12]
+                              }) })
+                            : isDiamond
+                            ? L.marker([comp.lat, comp.lng], { icon: L.divIcon({
+                                html: '<svg width="20" height="20" viewBox="0 0 20 20"><polygon points="10,1 19,10 10,19 1,10" fill="'+color+'" stroke="#fff" stroke-width="1.5"/></svg>',
+                                className: 'diamond-marker', iconSize: [20, 20], iconAnchor: [10, 10]
                               }) })
                             : L.circleMarker([comp.lat, comp.lng], { color: color, fillColor: color, fillOpacity: 0.85, radius: 7, weight: 1 });
                         marker.bindTooltip(getTooltipHTML(comp), { direction: 'top', offset: [0, -8], opacity: 0.95 });
