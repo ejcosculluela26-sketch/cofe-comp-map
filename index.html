@@ -547,6 +547,7 @@
             ind_lease:   { name: 'Industrial Lease', color: '#eab308' },
             ios_sale:    { name: 'IOS Sale', color: '#f97316' },
             ios_rent:    { name: 'IOS Rent', color: '#22c55e' },
+            land_sale:   { name: 'Land Sale', color: '#84cc16' },
             ios_pipeline:{ name: 'IOS Pipeline', color: '#a855f7' },
             ind_pipeline:{ name: 'Ind. Pipeline', color: '#6366f1' },
             cofe_owned:  { name: 'COFE Owned', color: '#facc15', star: true },
@@ -789,6 +790,20 @@
                     <div class="detail-label">Type</div><div class="detail-label">Date</div>
                     <div class="detail-value">${comp.ios_type || 'N/A'}</div><div class="detail-value">${comp.dt || 'N/A'}</div>
                     <div class="detail-full"><div class="detail-label">Tenant Type</div><div class="detail-value">${comp.tenant_type || 'N/A'}</div></div>
+                    <div class="detail-full"><div class="detail-label">Address</div><div class="detail-value">${comp.a || 'N/A'}</div></div>
+                `;
+            } else if (comp.l === 'land_sale') {
+                rows = `
+                    <div class="detail-label">Sale Price</div><div class="detail-label">Price/Usable AC</div>
+                    <div class="detail-value price">${comp.p || 'N/A'}</div><div class="detail-value">${comp.price_usable_ac || 'N/A'}</div>
+                    <div class="detail-label">Price/Total AC</div><div class="detail-label">Date</div>
+                    <div class="detail-value">${comp.price_total_ac || 'N/A'}</div><div class="detail-value">${comp.dt || 'N/A'}</div>
+                    <div class="detail-label">Total Acres</div><div class="detail-label">Usable Acres</div>
+                    <div class="detail-value">${comp.total_ac || 'N/A'}</div><div class="detail-value">${comp.usable_ac || 'N/A'}</div>
+                    <div class="detail-label">Zoning</div><div class="detail-label">Planned Use</div>
+                    <div class="detail-value">${comp.zoning || 'N/A'}</div><div class="detail-value">${comp.planned_use || 'N/A'}</div>
+                    <div class="detail-label">Seller</div><div class="detail-label">Buyer</div>
+                    <div class="detail-value">${comp.seller || 'N/A'}</div><div class="detail-value">${comp.buyer || 'N/A'}</div>
                     <div class="detail-full"><div class="detail-label">Address</div><div class="detail-value">${comp.a || 'N/A'}</div></div>
                 `;
             } else if (comp.l === 'ios_pipeline' || comp.l === 'ind_pipeline') {
