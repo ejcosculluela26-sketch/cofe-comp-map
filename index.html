@@ -808,7 +808,7 @@
                     <div class="detail-value">${comp.seller || 'N/A'}</div><div class="detail-value">${comp.buyer || 'N/A'}</div>
                     <div class="detail-full"><div class="detail-label">Address</div><div class="detail-value">${comp.a || 'N/A'}</div></div>
                 `;
-            } else if (comp.l === 'ios_pipeline' || comp.l === 'ind_pipeline') {
+            } else if (comp.l === 'ios_pipeline') {
                 rows = `
                     <div class="detail-label">Asking Price</div><div class="detail-label">Target Price</div>
                     <div class="detail-value price">${comp.p || 'N/A'}</div><div class="detail-value">${comp.target || 'N/A'}</div>
@@ -820,6 +820,20 @@
                     <div class="detail-value">${comp.sf || 'N/A'}</div><div class="detail-value">${comp.status || 'N/A'}</div>
                     <div class="detail-label">Zoning</div><div class="detail-label">Year Built</div>
                     <div class="detail-value">${comp.zoning || 'N/A'}</div><div class="detail-value">${comp.year_built || 'N/A'}</div>
+                    <div class="detail-full"><div class="detail-label">Address</div><div class="detail-value">${comp.a || 'N/A'}</div></div>
+                `;
+            } else if (comp.l === 'ind_pipeline') {
+                rows = `
+                    <div class="detail-label">Asking Price</div><div class="detail-label">Price/SF</div>
+                    <div class="detail-value price">${comp.p || 'N/A'}</div><div class="detail-value">${comp.psf || 'N/A'}</div>
+                    <div class="detail-label">Target Price</div><div class="detail-label">Price/Total AC</div>
+                    <div class="detail-value">${comp.target || 'N/A'}</div><div class="detail-value">${comp.price_total_ac || 'N/A'}</div>
+                    <div class="detail-label">Building SF</div><div class="detail-label">Total Acres</div>
+                    <div class="detail-value">${comp.sf || 'N/A'}</div><div class="detail-value">${comp.total_ac || 'N/A'}</div>
+                    <div class="detail-label">Status</div><div class="detail-label">Year Built</div>
+                    <div class="detail-value">${comp.status || 'N/A'}</div><div class="detail-value">${comp.year_built || 'N/A'}</div>
+                    <div class="detail-label">Zoning</div><div class="detail-label">Submarket</div>
+                    <div class="detail-value">${comp.zoning || 'N/A'}</div><div class="detail-value">${comp.sm || 'N/A'}</div>
                     <div class="detail-full"><div class="detail-label">Address</div><div class="detail-value">${comp.a || 'N/A'}</div></div>
                 `;
             } else if (comp.l === 'cofe_owned' || comp.l === 'cofe_sold') {
