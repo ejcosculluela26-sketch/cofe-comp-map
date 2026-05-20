@@ -1008,6 +1008,54 @@
             }, 500);
         })();
 
+        // URL parameter: ?focus=ID&layer=LAYER — deep link from the Query Builder
+        // Drills into the cluster (zoomToShowLayer) and opens the detail panel.
+        (function handleFocus() {
+            const params = new URLSearchParams(window.location.search);
+            const focusId = params.get('focus');
+            const layerCode = params.get('layer');
+            if (!focusId || !layerCode) return;
+            if (!layerConfig[layerCode]) return;
+
+            const match = markers.find(m => String(m.comp.row) === focusId && m.comp.l === layerCode);
+            if (!match) {
+                window.history.replaceState({}, '', window.location.pathname);
+                return;
+            }
+
+            // If the layer is currently toggled off, click its toggle to re-enable it
+            if (!activeLayers.has(layerCode)) {
+                const toggleEl = document.querySelector(`.sb-layer[data-layer="${layerCode}"]`);
+                if (toggleEl) toggleEl.click();
+            }
+
+            const clusterGroup = layers[layerCode];
+            const targetMarker = match.marker;
+
+            // Helper: open the marker (fires its click handler, which opens the detail panel)
+            const openMarker = () => {
+                targetMarker.fire('click');
+            };
+
+            setTimeout(() => {
+                if (clusterGroup && typeof clusterGroup.zoomToShowLayer === 'function') {
+                    // zoomToShowLayer drills the cluster until the marker is visible, then fires the callback
+                    clusterGroup.zoomToShowLayer(targetMarker, () => {
+                        // Ensure we end at a useful zoom (16-17) even if the cluster was already expanded
+                        if (map.getZoom() < 16) {
+                            map.setView([match.comp.lat, match.comp.lng], 17);
+                        }
+                        setTimeout(openMarker, 250);
+                    });
+                } else {
+                    // Fallback: pan/zoom and open
+                    map.flyTo([match.comp.lat, match.comp.lng], 17, { duration: 1.2 });
+                    setTimeout(openMarker, 1500);
+                }
+                window.history.replaceState({}, '', window.location.pathname);
+            }, 400);
+        })();
+
         // ── Two-tier city labels: market names when zoomed out, individual cities when zoomed in ──
         (function cityLabels() {
             // ── Tier 1: Market-level labels (visible zoomed out, fade when zoomed in) ──

@@ -8,6 +8,7 @@
 :root {
   --bg: #0b1220;
   --panel: #1e1e2e;
+  --panel-2: #16162a;
   --border: #2a2a3e;
   --text: #e4e4e7;
   --muted: #6a6a8a;
@@ -17,46 +18,224 @@
 * { box-sizing: border-box; }
 body { margin: 0; font-family: 'Segoe UI', Arial, sans-serif; background: var(--bg); color: var(--text); overflow: hidden; }
 .app { display: flex; height: 100vh; }
-#sidebar { width: 310px; background: var(--panel); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow-y: auto; }
-#main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+#sidebar { width: 310px; background: var(--panel); border-right: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; }
+#sidebar-scroll { flex: 1; overflow-y: auto; }
+#main { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
 
-.hd { padding: 16px; border-bottom: 1px solid var(--border); }
+.hd { padding: 14px 16px 12px; border-bottom: 1px solid var(--border); }
 .hd h1 { margin: 0; font-size: 14px; font-weight: 700; letter-spacing: 0.5px; }
 .hd .sub { font-size: 10px; color: var(--muted); margin-top: 3px; letter-spacing: 0.3px; }
 .hd a { color: var(--accent); text-decoration: none; font-size: 11px; font-weight: 600; }
 
-.sec { padding: 12px 16px 10px; border-bottom: 1px solid var(--border); }
-.sec-title { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 8px; }
-.row-grid { display: grid; gap: 4px; }
-.row-2 { grid-template-columns: 1fr 1fr; gap: 6px; }
-.chk-item { display: flex; align-items: center; padding: 4px 0; font-size: 12px; cursor: pointer; }
+/* Compact collapsed filter rows */
+.flt-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  font-size: 11px;
+  user-select: none;
+  transition: background 0.12s;
+}
+.flt-row:hover { background: var(--panel-2); }
+.flt-row.open { background: var(--panel-2); }
+.flt-row .label {
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-size: 10px;
+}
+.flt-row .right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.flt-row .summary {
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 500;
+  max-width: 130px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: right;
+}
+.flt-row .summary.dim { color: var(--muted); }
+.flt-row .summary.active { color: var(--accent); font-weight: 600; }
+.flt-row .chev {
+  color: var(--muted);
+  font-size: 9px;
+  transition: transform 0.15s;
+}
+.flt-row.open .chev { transform: rotate(180deg); color: var(--accent); }
+
+/* Popup panel */
+.popup {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 8px;
+  right: 8px;
+  z-index: 50;
+  background: var(--panel);
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  padding: 12px;
+  box-shadow: 0 8px 22px rgba(0,0,0,0.45);
+  max-height: 380px;
+  overflow-y: auto;
+  margin-top: 2px;
+}
+.popup.open { display: block; }
+.popup .pop-title {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 10px;
+}
+.popup .done-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+.popup .btn-mini {
+  padding: 5px 10px;
+  font-size: 10px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 600;
+}
+.popup .btn-mini:hover { background: var(--border); }
+.popup .btn-done {
+  padding: 5px 14px;
+  font-size: 11px;
+  background: var(--accent);
+  border: none;
+  color: white;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.chk-item {
+  display: flex;
+  align-items: center;
+  padding: 4px 0;
+  font-size: 12px;
+  cursor: pointer;
+}
 .chk-item input { margin-right: 8px; }
+.chk-item .cnt { color: var(--muted); margin-left: auto; font-size: 10px; }
+
 .range-row { display: flex; gap: 6px; align-items: center; font-size: 12px; }
 .range-row input[type=number] { flex: 1; }
 .range-row .sep { color: var(--muted); }
-input, select { width: 100%; padding: 5px 7px; background: #16162a; border: 1px solid var(--border); color: var(--text); border-radius: 4px; font-size: 12px; }
+
+input, select {
+  width: 100%;
+  padding: 5px 7px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 4px;
+  font-size: 12px;
+}
 input[type=date] { color-scheme: dark; }
-.btn-row { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 6px; }
-.btn-preset { padding: 4px 8px; font-size: 10px; background: #16162a; border: 1px solid var(--border); color: var(--text); border-radius: 4px; cursor: pointer; font-weight: 600; }
-.btn-preset:hover { background: var(--accent); border-color: var(--accent); }
-.btn-clear { padding: 6px 12px; font-size: 11px; background: #16162a; border: 1px solid var(--border); color: var(--text); border-radius: 4px; cursor: pointer; width: 100%; margin-top: 8px; font-weight: 600; }
+input:focus, select:focus { outline: none; border-color: var(--accent); }
+
+.btn-row { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 8px; }
+.btn-preset {
+  padding: 4px 8px;
+  font-size: 10px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 600;
+}
+.btn-preset:hover, .btn-preset.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+}
+
+#clear-wrap { padding: 12px 16px; border-top: 1px solid var(--border); }
+.btn-clear {
+  padding: 8px 12px;
+  font-size: 11px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 4px;
+  cursor: pointer;
+  width: 100%;
+  font-weight: 600;
+}
 .btn-clear:hover { background: #2d2d4a; }
 
-.toolbar { padding: 12px 16px; background: var(--panel); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 16px; }
+.toolbar {
+  padding: 12px 16px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
 .count-badge { font-size: 13px; font-weight: 700; }
 .count-num { color: var(--accent); font-size: 18px; }
 .tools { margin-left: auto; display: flex; gap: 8px; }
-.btn-export { padding: 7px 14px; background: var(--accent); border: none; color: white; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 12px; }
+.btn-export {
+  padding: 7px 14px;
+  background: var(--accent);
+  border: none;
+  color: white;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 12px;
+}
 .btn-export:hover { filter: brightness(1.1); }
-.btn-back { padding: 7px 14px; background: #16162a; border: 1px solid var(--border); color: var(--text); border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 12px; text-decoration: none; display: inline-block; }
 
 #table-wrap { flex: 1; overflow: auto; }
 table { width: 100%; border-collapse: collapse; font-size: 12px; }
-thead th { background: var(--panel); position: sticky; top: 0; padding: 9px 8px; text-align: left; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; font-size: 10px; border-bottom: 2px solid var(--border); cursor: pointer; user-select: none; white-space: nowrap; }
+thead th {
+  background: var(--panel);
+  position: sticky;
+  top: 0;
+  padding: 9px 8px;
+  text-align: left;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-size: 10px;
+  border-bottom: 2px solid var(--border);
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
 thead th:hover { color: var(--text); }
 thead th.sorted { color: var(--accent); }
 tbody td { padding: 8px; border-bottom: 1px solid var(--border); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 280px; }
-tbody tr:hover { background: #16162a; }
+tbody tr { cursor: pointer; transition: background 0.08s; }
+tbody tr:hover { background: var(--panel-2); }
+tbody tr:hover .pin-icon { color: var(--accent); }
+.pin-icon { color: var(--muted); font-size: 14px; text-decoration: none; }
+.pin-icon:hover { color: var(--accent); }
+
 .layer-pill { display: inline-block; padding: 2px 7px; border-radius: 8px; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; }
 .lyr-ind_sale { background: rgba(245, 158, 11, 0.2); color: #f59e0b; }
 .lyr-ind_lease { background: rgba(168, 85, 247, 0.2); color: #c084fc; }
@@ -80,93 +259,12 @@ tbody tr:hover { background: #16162a; }
       <div style="margin-top:8px;"><a href="index.html">&larr; Back to map</a></div>
     </div>
 
-    <div class="sec">
-      <div class="sec-title">Comp Layer</div>
-      <div id="filt-layer"></div>
+    <div id="sidebar-scroll">
+      <!-- Filter rows are rendered by JS into this container -->
+      <div id="filter-rows"></div>
     </div>
 
-    <div class="sec">
-      <div class="sec-title">Market</div>
-      <div id="filt-market"></div>
-    </div>
-
-    <div class="sec">
-      <div class="sec-title">Class</div>
-      <label class="chk-item"><input type="radio" name="cls" value="" checked> All</label>
-      <label class="chk-item"><input type="radio" name="cls" value="A"> Class A</label>
-      <label class="chk-item"><input type="radio" name="cls" value="B+C"> Class B / C</label>
-    </div>
-
-    <div class="sec">
-      <div class="sec-title">Clear Height (Min)</div>
-      <div class="range-row">
-        <input type="number" id="clr-min" placeholder="e.g. 24" min="0" max="60" step="1">
-        <span style="font-size:11px;color:var(--muted);">ft</span>
-      </div>
-    </div>
-
-    <div class="sec">
-      <div class="sec-title">Size (SF)</div>
-      <div class="range-row">
-        <input type="number" id="sf-min" placeholder="Min" min="0" step="100">
-        <span class="sep">to</span>
-        <input type="number" id="sf-max" placeholder="Max" min="0" step="100">
-      </div>
-    </div>
-
-    <div class="sec">
-      <div class="sec-title">Date Signed</div>
-      <div class="range-row">
-        <input type="date" id="dt-from">
-        <span class="sep">to</span>
-        <input type="date" id="dt-to">
-      </div>
-      <div class="btn-row">
-        <button class="btn-preset" data-preset="last90">Last 90d</button>
-        <button class="btn-preset" data-preset="last6mo">Last 6mo</button>
-        <button class="btn-preset" data-preset="last12mo">Last 12mo</button>
-        <button class="btn-preset" data-preset="ytd">YTD</button>
-        <button class="btn-preset" data-preset="all">All</button>
-      </div>
-    </div>
-
-    <div class="sec">
-      <div class="sec-title">Sale Price ($) — sale layers</div>
-      <div class="range-row">
-        <input type="number" id="p-min" placeholder="Min" min="0" step="100000">
-        <span class="sep">to</span>
-        <input type="number" id="p-max" placeholder="Max" min="0" step="100000">
-      </div>
-    </div>
-
-    <div class="sec">
-      <div class="sec-title">$/SF — sale layers</div>
-      <div class="range-row">
-        <input type="number" id="psf-min" placeholder="Min" min="0" step="5">
-        <span class="sep">to</span>
-        <input type="number" id="psf-max" placeholder="Max" min="0" step="5">
-      </div>
-    </div>
-
-    <div class="sec">
-      <div class="sec-title">Rent ($/SF/yr) — lease layers</div>
-      <div class="range-row">
-        <input type="number" id="rent-min" placeholder="Min" min="0" step="0.5">
-        <span class="sep">to</span>
-        <input type="number" id="rent-max" placeholder="Max" min="0" step="0.5">
-      </div>
-    </div>
-
-    <div class="sec">
-      <div class="sec-title">Rent ($/ac/mo) — IOS rent</div>
-      <div class="range-row">
-        <input type="number" id="rac-min" placeholder="Min" min="0" step="500">
-        <span class="sep">to</span>
-        <input type="number" id="rac-max" placeholder="Max" min="0" step="500">
-      </div>
-    </div>
-
-    <div class="sec">
+    <div id="clear-wrap">
       <button class="btn-clear" onclick="clearAll()">Clear All Filters</button>
     </div>
   </div>
@@ -179,7 +277,7 @@ tbody tr:hover { background: #16162a; }
       </div>
     </div>
     <div id="table-wrap">
-      <div class="loader" id="loader">Loading data.json…</div>
+      <div class="loader" id="loader">Loading data.json&hellip;</div>
     </div>
   </div>
 </div>
@@ -204,152 +302,463 @@ const SALE_LAYERS = new Set(['ind_sale','ios_sale','land_sale']);
 const LEASE_LAYERS = new Set(['ind_lease']);
 const IOS_RENT_LAYERS = new Set(['ios_rent']);
 
+// Filter row schema — order matters; "id" is the row container id
+const FILTER_ROWS = [
+  { id: 'flt-layer',  label: 'Comp Layer',     type: 'checkbox-list' },
+  { id: 'flt-market', label: 'Market',         type: 'checkbox-list' },
+  { id: 'flt-class',  label: 'Class',          type: 'radio' },
+  { id: 'flt-clr',    label: 'Clear Height',   type: 'min',    unit: 'ft' },
+  { id: 'flt-sf',     label: 'Size (SF)',      type: 'range',  fmt: 'int' },
+  { id: 'flt-date',   label: 'Date Signed',    type: 'date' },
+  { id: 'flt-psf',    label: '$/SF',           type: 'range',  fmt: 'money' },
+  { id: 'flt-rent',   label: 'Rent $/SF/yr',   type: 'range',  fmt: 'money2' },
+  { id: 'flt-rac',    label: 'Rent $/ac/mo',   type: 'range',  fmt: 'money' },
+];
+
+// Filter state — populated in init
+const FILTER_STATE = {
+  layers: new Set(),       // checked layer codes
+  allLayers: [],           // all available layer codes (for "all selected" check)
+  markets: new Set(),
+  allMarkets: [],
+  cls: '',                 // '', 'A', 'B+C'
+  clrMin: null,
+  sfMin: null, sfMax: null,
+  dtFrom: '', dtTo: '',
+  dtPreset: '',            // 'last90' | 'last6mo' | 'last12mo' | 'ytd' | 'all' | ''
+  psfMin: null, psfMax: null,
+  rentMin: null, rentMax: null,
+  racMin: null, racMax: null,
+};
+
+// ============================
+// Sidebar rendering
+// ============================
+
 function buildSidebar() {
-  // Layers — show counts dynamically
+  // Compute layer/market counts upfront
   const layerCounts = {};
   ALL.forEach(c => { layerCounts[c.l] = (layerCounts[c.l]||0) + 1; });
-  const layerDiv = document.getElementById('filt-layer');
-  Object.entries(LAYER_LABELS).forEach(([k, label]) => {
-    if (!layerCounts[k]) return;
-    const lbl = document.createElement('label');
-    lbl.className = 'chk-item';
-    lbl.innerHTML = `<input type="checkbox" class="layer-chk" value="${k}" checked> ${label} <span style="color:var(--muted);margin-left:auto;font-size:10px;">${layerCounts[k]}</span>`;
-    layerDiv.appendChild(lbl);
-  });
+  FILTER_STATE.allLayers = Object.keys(LAYER_LABELS).filter(k => layerCounts[k]);
+  FILTER_STATE.allLayers.forEach(k => FILTER_STATE.layers.add(k));
 
-  // Markets — pulled from _m field
   const marketCounts = {};
   ALL.forEach(c => {
     const m = (c._m || '').trim() || '(Unspecified)';
     marketCounts[m] = (marketCounts[m]||0) + 1;
   });
-  const marketDiv = document.getElementById('filt-market');
-  const sortedMarkets = Object.entries(marketCounts).sort((a,b) => b[1]-a[1]);
-  sortedMarkets.forEach(([m, n]) => {
-    const lbl = document.createElement('label');
-    lbl.className = 'chk-item';
-    lbl.innerHTML = `<input type="checkbox" class="market-chk" value="${m}" checked> ${m} <span style="color:var(--muted);margin-left:auto;font-size:10px;">${n}</span>`;
-    marketDiv.appendChild(lbl);
+  FILTER_STATE.allMarkets = Object.entries(marketCounts).sort((a,b) => b[1]-a[1]).map(e => e[0]);
+  FILTER_STATE.allMarkets.forEach(m => FILTER_STATE.markets.add(m));
+
+  // Render each filter row
+  const container = document.getElementById('filter-rows');
+  container.innerHTML = '';
+  FILTER_ROWS.forEach(spec => {
+    const row = document.createElement('div');
+    row.className = 'flt-row';
+    row.dataset.id = spec.id;
+    row.innerHTML = `
+      <div class="label">${spec.label}</div>
+      <div class="right">
+        <span class="summary dim" data-summary="${spec.id}">Any</span>
+        <span class="chev">&#x25BC;</span>
+      </div>
+      <div class="popup" data-popup="${spec.id}"></div>
+    `;
+    row.addEventListener('click', (e) => {
+      // Don't toggle when click is inside the popup
+      if (e.target.closest('.popup')) return;
+      togglePopup(spec.id);
+    });
+    container.appendChild(row);
+    renderPopupContent(spec, layerCounts, marketCounts);
   });
 
-  // Wire up all inputs to trigger filter
-  document.querySelectorAll('input, select').forEach(el => {
-    el.addEventListener('input', applyFilters);
-    el.addEventListener('change', applyFilters);
-  });
+  updateAllSummaries();
+  closeAllPopups();
 
-  // Date presets
-  document.querySelectorAll('.btn-preset').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.preventDefault();
-      applyDatePreset(btn.dataset.preset);
+  // Close popup on outside click
+  document.addEventListener('mousedown', (e) => {
+    if (!e.target.closest('.flt-row')) closeAllPopups();
+  });
+}
+
+function renderPopupContent(spec, layerCounts, marketCounts) {
+  const popup = document.querySelector(`[data-popup="${spec.id}"]`);
+  let inner = `<div class="pop-title">${spec.label}</div>`;
+
+  if (spec.id === 'flt-layer') {
+    FILTER_STATE.allLayers.forEach(k => {
+      inner += `<label class="chk-item">
+        <input type="checkbox" data-layer="${k}" checked>
+        ${LAYER_LABELS[k]||k}
+        <span class="cnt">${layerCounts[k]}</span>
+      </label>`;
+    });
+    inner += `<div class="done-row">
+      <button class="btn-mini" data-action="layer-all">Select all</button>
+      <button class="btn-mini" data-action="layer-none">Clear</button>
+      <button class="btn-done" data-action="done">Done</button>
+    </div>`;
+  } else if (spec.id === 'flt-market') {
+    FILTER_STATE.allMarkets.forEach(m => {
+      inner += `<label class="chk-item">
+        <input type="checkbox" data-market="${escAttr(m)}" checked>
+        ${escHtml(m)}
+        <span class="cnt">${marketCounts[m]}</span>
+      </label>`;
+    });
+    inner += `<div class="done-row">
+      <button class="btn-mini" data-action="market-all">Select all</button>
+      <button class="btn-mini" data-action="market-none">Clear</button>
+      <button class="btn-done" data-action="done">Done</button>
+    </div>`;
+  } else if (spec.id === 'flt-class') {
+    inner += `
+      <label class="chk-item"><input type="radio" name="cls" value="" checked> All</label>
+      <label class="chk-item"><input type="radio" name="cls" value="A"> Class A</label>
+      <label class="chk-item"><input type="radio" name="cls" value="B+C"> Class B / C</label>
+      <div class="done-row"><div></div><button class="btn-done" data-action="done">Done</button></div>
+    `;
+  } else if (spec.id === 'flt-clr') {
+    inner += `
+      <div class="range-row">
+        <input type="number" id="clr-min" placeholder="e.g. 24" min="0" max="60" step="1">
+        <span style="font-size:11px;color:var(--muted);">ft min</span>
+      </div>
+      <div class="done-row"><button class="btn-mini" data-action="clear-clr">Clear</button><button class="btn-done" data-action="done">Done</button></div>
+    `;
+  } else if (spec.id === 'flt-sf') {
+    inner += `
+      <div class="range-row">
+        <input type="number" id="sf-min" placeholder="Min" min="0" step="100">
+        <span class="sep">to</span>
+        <input type="number" id="sf-max" placeholder="Max" min="0" step="100">
+      </div>
+      <div class="done-row"><button class="btn-mini" data-action="clear-sf">Clear</button><button class="btn-done" data-action="done">Done</button></div>
+    `;
+  } else if (spec.id === 'flt-date') {
+    inner += `
+      <div class="range-row">
+        <input type="date" id="dt-from">
+        <span class="sep">to</span>
+        <input type="date" id="dt-to">
+      </div>
+      <div class="btn-row">
+        <button class="btn-preset" data-preset="last90">Last 90d</button>
+        <button class="btn-preset" data-preset="last6mo">Last 6mo</button>
+        <button class="btn-preset" data-preset="last12mo">Last 12mo</button>
+        <button class="btn-preset" data-preset="ytd">YTD</button>
+        <button class="btn-preset" data-preset="all">All</button>
+      </div>
+      <div class="done-row"><div></div><button class="btn-done" data-action="done">Done</button></div>
+    `;
+  } else if (spec.id === 'flt-psf') {
+    inner += `
+      <div class="range-row">
+        <input type="number" id="psf-min" placeholder="Min" min="0" step="5">
+        <span class="sep">to</span>
+        <input type="number" id="psf-max" placeholder="Max" min="0" step="5">
+      </div>
+      <div style="font-size:10px;color:var(--muted);margin-top:6px;">Applies to sale layers only.</div>
+      <div class="done-row"><button class="btn-mini" data-action="clear-psf">Clear</button><button class="btn-done" data-action="done">Done</button></div>
+    `;
+  } else if (spec.id === 'flt-rent') {
+    inner += `
+      <div class="range-row">
+        <input type="number" id="rent-min" placeholder="Min" min="0" step="0.5">
+        <span class="sep">to</span>
+        <input type="number" id="rent-max" placeholder="Max" min="0" step="0.5">
+      </div>
+      <div style="font-size:10px;color:var(--muted);margin-top:6px;">Applies to industrial lease only.</div>
+      <div class="done-row"><button class="btn-mini" data-action="clear-rent">Clear</button><button class="btn-done" data-action="done">Done</button></div>
+    `;
+  } else if (spec.id === 'flt-rac') {
+    inner += `
+      <div class="range-row">
+        <input type="number" id="rac-min" placeholder="Min" min="0" step="500">
+        <span class="sep">to</span>
+        <input type="number" id="rac-max" placeholder="Max" min="0" step="500">
+      </div>
+      <div style="font-size:10px;color:var(--muted);margin-top:6px;">Applies to IOS rent only.</div>
+      <div class="done-row"><button class="btn-mini" data-action="clear-rac">Clear</button><button class="btn-done" data-action="done">Done</button></div>
+    `;
+  }
+
+  popup.innerHTML = inner;
+  wirePopup(popup, spec);
+}
+
+function wirePopup(popup, spec) {
+  // Generic input/change handler -> update state + summaries + refilter
+  popup.querySelectorAll('input').forEach(el => {
+    el.addEventListener('input', () => {
+      syncStateFromPopup(spec);
+      updateAllSummaries();
+      applyFilters();
+    });
+    el.addEventListener('change', () => {
+      syncStateFromPopup(spec);
+      updateAllSummaries();
+      applyFilters();
     });
   });
+
+  // Buttons
+  popup.querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const action = btn.dataset.action;
+      const preset = btn.dataset.preset;
+      if (preset) {
+        applyDatePreset(preset);
+        return;
+      }
+      if (!action) return;
+      if (action === 'done') { closeAllPopups(); return; }
+      if (action === 'layer-all')  { popup.querySelectorAll('[data-layer]').forEach(c => c.checked = true);  syncStateFromPopup(spec); }
+      if (action === 'layer-none') { popup.querySelectorAll('[data-layer]').forEach(c => c.checked = false); syncStateFromPopup(spec); }
+      if (action === 'market-all') { popup.querySelectorAll('[data-market]').forEach(c => c.checked = true);  syncStateFromPopup(spec); }
+      if (action === 'market-none'){ popup.querySelectorAll('[data-market]').forEach(c => c.checked = false); syncStateFromPopup(spec); }
+      if (action === 'clear-clr')  { popup.querySelector('#clr-min').value = ''; syncStateFromPopup(spec); }
+      if (action === 'clear-sf')   { popup.querySelector('#sf-min').value = ''; popup.querySelector('#sf-max').value = ''; syncStateFromPopup(spec); }
+      if (action === 'clear-psf')  { popup.querySelector('#psf-min').value = ''; popup.querySelector('#psf-max').value = ''; syncStateFromPopup(spec); }
+      if (action === 'clear-rent') { popup.querySelector('#rent-min').value = ''; popup.querySelector('#rent-max').value = ''; syncStateFromPopup(spec); }
+      if (action === 'clear-rac')  { popup.querySelector('#rac-min').value = ''; popup.querySelector('#rac-max').value = ''; syncStateFromPopup(spec); }
+      updateAllSummaries();
+      applyFilters();
+    });
+  });
+}
+
+function syncStateFromPopup(spec) {
+  if (spec.id === 'flt-layer') {
+    FILTER_STATE.layers = new Set(
+      [...document.querySelectorAll('[data-popup="flt-layer"] [data-layer]:checked')].map(c => c.dataset.layer)
+    );
+  } else if (spec.id === 'flt-market') {
+    FILTER_STATE.markets = new Set(
+      [...document.querySelectorAll('[data-popup="flt-market"] [data-market]:checked')].map(c => c.dataset.market)
+    );
+  } else if (spec.id === 'flt-class') {
+    const sel = document.querySelector('[data-popup="flt-class"] input[name=cls]:checked');
+    FILTER_STATE.cls = sel ? sel.value : '';
+  } else if (spec.id === 'flt-clr') {
+    FILTER_STATE.clrMin = numOrNull(document.querySelector('[data-popup="flt-clr"] #clr-min').value);
+  } else if (spec.id === 'flt-sf') {
+    FILTER_STATE.sfMin = numOrNull(document.querySelector('[data-popup="flt-sf"] #sf-min').value);
+    FILTER_STATE.sfMax = numOrNull(document.querySelector('[data-popup="flt-sf"] #sf-max').value);
+  } else if (spec.id === 'flt-date') {
+    FILTER_STATE.dtFrom = document.querySelector('[data-popup="flt-date"] #dt-from').value || '';
+    FILTER_STATE.dtTo   = document.querySelector('[data-popup="flt-date"] #dt-to').value   || '';
+    // Manual edit clears the preset tag
+    FILTER_STATE.dtPreset = '';
+    document.querySelectorAll('[data-popup="flt-date"] .btn-preset').forEach(b => b.classList.remove('active'));
+  } else if (spec.id === 'flt-psf') {
+    FILTER_STATE.psfMin = numOrNull(document.querySelector('[data-popup="flt-psf"] #psf-min').value);
+    FILTER_STATE.psfMax = numOrNull(document.querySelector('[data-popup="flt-psf"] #psf-max').value);
+  } else if (spec.id === 'flt-rent') {
+    FILTER_STATE.rentMin = numOrNull(document.querySelector('[data-popup="flt-rent"] #rent-min').value);
+    FILTER_STATE.rentMax = numOrNull(document.querySelector('[data-popup="flt-rent"] #rent-max').value);
+  } else if (spec.id === 'flt-rac') {
+    FILTER_STATE.racMin = numOrNull(document.querySelector('[data-popup="flt-rac"] #rac-min').value);
+    FILTER_STATE.racMax = numOrNull(document.querySelector('[data-popup="flt-rac"] #rac-max').value);
+  }
+}
+
+function numOrNull(v) {
+  const n = parseFloat(v);
+  return isNaN(n) ? null : n;
+}
+
+function togglePopup(id) {
+  const row = document.querySelector(`.flt-row[data-id="${id}"]`);
+  const popup = document.querySelector(`[data-popup="${id}"]`);
+  const wasOpen = popup.classList.contains('open');
+  closeAllPopups();
+  if (!wasOpen) {
+    popup.classList.add('open');
+    row.classList.add('open');
+    // Focus first input
+    const first = popup.querySelector('input');
+    if (first) setTimeout(() => first.focus(), 30);
+  }
+}
+
+function closeAllPopups() {
+  document.querySelectorAll('.popup').forEach(p => p.classList.remove('open'));
+  document.querySelectorAll('.flt-row').forEach(r => r.classList.remove('open'));
+}
+
+// ============================
+// Summary text
+// ============================
+
+function updateAllSummaries() {
+  setSummary('flt-layer', summaryLayer());
+  setSummary('flt-market', summaryMarket());
+  setSummary('flt-class', summaryClass());
+  setSummary('flt-clr', summaryClr());
+  setSummary('flt-sf', summarySf());
+  setSummary('flt-date', summaryDate());
+  setSummary('flt-psf', summaryRange(FILTER_STATE.psfMin, FILTER_STATE.psfMax, '$'));
+  setSummary('flt-rent', summaryRange(FILTER_STATE.rentMin, FILTER_STATE.rentMax, '$', '/SF'));
+  setSummary('flt-rac', summaryRange(FILTER_STATE.racMin, FILTER_STATE.racMax, '$', '/ac'));
+}
+
+function setSummary(id, info) {
+  const el = document.querySelector(`[data-summary="${id}"]`);
+  if (!el) return;
+  el.textContent = info.text;
+  el.classList.toggle('dim', !info.active);
+  el.classList.toggle('active', !!info.active);
+}
+
+function summaryLayer() {
+  const total = FILTER_STATE.allLayers.length;
+  const n = FILTER_STATE.layers.size;
+  if (n === total) return { text: `All (${total})`, active: false };
+  if (n === 0)     return { text: 'None', active: true };
+  if (n === 1) {
+    const k = [...FILTER_STATE.layers][0];
+    return { text: LAYER_LABELS[k]||k, active: true };
+  }
+  return { text: `${n} of ${total}`, active: true };
+}
+
+function summaryMarket() {
+  const total = FILTER_STATE.allMarkets.length;
+  const n = FILTER_STATE.markets.size;
+  if (n === total) return { text: `All (${total})`, active: false };
+  if (n === 0)     return { text: 'None', active: true };
+  if (n === 1)     return { text: [...FILTER_STATE.markets][0], active: true };
+  return { text: `${n} of ${total}`, active: true };
+}
+
+function summaryClass() {
+  const c = FILTER_STATE.cls;
+  if (!c) return { text: 'All', active: false };
+  if (c === 'A') return { text: 'Class A', active: true };
+  if (c === 'B+C') return { text: 'B / C', active: true };
+  return { text: 'All', active: false };
+}
+
+function summaryClr() {
+  const v = FILTER_STATE.clrMin;
+  if (v == null) return { text: 'Any', active: false };
+  return { text: `≥ ${v} ft`, active: true };
+}
+
+function summarySf() {
+  const lo = FILTER_STATE.sfMin, hi = FILTER_STATE.sfMax;
+  if (lo == null && hi == null) return { text: 'Any', active: false };
+  const fmt = n => n != null ? n.toLocaleString() : '';
+  if (lo != null && hi != null) return { text: `${fmt(lo)} – ${fmt(hi)}`, active: true };
+  if (lo != null) return { text: `≥ ${fmt(lo)}`, active: true };
+  return { text: `≤ ${fmt(hi)}`, active: true };
+}
+
+function summaryDate() {
+  if (FILTER_STATE.dtPreset) {
+    const labels = { last90: 'Last 90 days', last6mo: 'Last 6 months', last12mo: 'Last 12 months', ytd: 'YTD', all: 'All time' };
+    const txt = labels[FILTER_STATE.dtPreset] || 'Custom';
+    return { text: txt, active: FILTER_STATE.dtPreset !== 'all' && FILTER_STATE.dtPreset !== '' };
+  }
+  const from = FILTER_STATE.dtFrom, to = FILTER_STATE.dtTo;
+  if (!from && !to) return { text: 'All time', active: false };
+  if (from && to)   return { text: `${from} → ${to}`, active: true };
+  if (from)         return { text: `From ${from}`, active: true };
+  return { text: `Until ${to}`, active: true };
+}
+
+function summaryRange(lo, hi, prefix, suffix) {
+  prefix = prefix || '';
+  suffix = suffix || '';
+  if (lo == null && hi == null) return { text: 'Any', active: false };
+  const fmt = n => n != null ? (prefix + n.toLocaleString()) : '';
+  if (lo != null && hi != null) return { text: `${fmt(lo)} – ${fmt(hi)}${suffix}`, active: true };
+  if (lo != null) return { text: `≥ ${fmt(lo)}${suffix}`, active: true };
+  return { text: `≤ ${fmt(hi)}${suffix}`, active: true };
 }
 
 function applyDatePreset(p) {
   const today = new Date();
   const ymd = d => d.toISOString().slice(0,10);
-  const dtFrom = document.getElementById('dt-from');
-  const dtTo = document.getElementById('dt-to');
+  const dtFrom = document.querySelector('[data-popup="flt-date"] #dt-from');
+  const dtTo   = document.querySelector('[data-popup="flt-date"] #dt-to');
+
   if (p === 'all') {
     dtFrom.value = ''; dtTo.value = '';
   } else if (p === 'ytd') {
     dtFrom.value = `${today.getFullYear()}-01-01`; dtTo.value = ymd(today);
   } else {
     const from = new Date(today);
-    if (p === 'last90') from.setDate(from.getDate() - 90);
-    if (p === 'last6mo') from.setMonth(from.getMonth() - 6);
+    if (p === 'last90')   from.setDate(from.getDate() - 90);
+    if (p === 'last6mo')  from.setMonth(from.getMonth() - 6);
     if (p === 'last12mo') from.setMonth(from.getMonth() - 12);
     dtFrom.value = ymd(from); dtTo.value = ymd(today);
   }
+  FILTER_STATE.dtFrom = dtFrom.value;
+  FILTER_STATE.dtTo   = dtTo.value;
+  FILTER_STATE.dtPreset = p;
+
+  document.querySelectorAll('[data-popup="flt-date"] .btn-preset').forEach(b => {
+    b.classList.toggle('active', b.dataset.preset === p);
+  });
+
+  updateAllSummaries();
   applyFilters();
 }
 
-function getActiveFilters() {
-  const layers = new Set([...document.querySelectorAll('.layer-chk:checked')].map(c => c.value));
-  const markets = new Set([...document.querySelectorAll('.market-chk:checked')].map(c => c.value));
-  const cls = document.querySelector('input[name=cls]:checked').value;
-  const clrMin = parseFloat(document.getElementById('clr-min').value) || null;
-  const sfMin = parseFloat(document.getElementById('sf-min').value) || null;
-  const sfMax = parseFloat(document.getElementById('sf-max').value) || null;
-  const dtFrom = document.getElementById('dt-from').value || null;
-  const dtTo = document.getElementById('dt-to').value || null;
-  const pMin = parseFloat(document.getElementById('p-min').value) || null;
-  const pMax = parseFloat(document.getElementById('p-max').value) || null;
-  const psfMin = parseFloat(document.getElementById('psf-min').value) || null;
-  const psfMax = parseFloat(document.getElementById('psf-max').value) || null;
-  const rentMin = parseFloat(document.getElementById('rent-min').value) || null;
-  const rentMax = parseFloat(document.getElementById('rent-max').value) || null;
-  const racMin = parseFloat(document.getElementById('rac-min').value) || null;
-  const racMax = parseFloat(document.getElementById('rac-max').value) || null;
-  return { layers, markets, cls, clrMin, sfMin, sfMax, dtFrom, dtTo, pMin, pMax, psfMin, psfMax, rentMin, rentMax, racMin, racMax };
-}
+// ============================
+// Filtering + table
+// ============================
 
 function filterRow(c, f) {
   if (!f.layers.has(c.l)) return false;
   const mk = (c._m || '').trim() || '(Unspecified)';
   if (!f.markets.has(mk)) return false;
 
-  // Class — only filters sale comps that have a class_norm
   if (f.cls) {
     if (c.l === 'ind_sale') {
       if ((c._cls || '') !== f.cls) return false;
     }
-    // For lease/IOS/etc., class filter is a no-op (don't exclude — they have no class)
   }
 
-  // Clear height (min): only applies where _clmin exists
   if (f.clrMin != null) {
-    if (c._clmin == null) return false;   // strict: no clear height = exclude when filter active
+    if (c._clmin == null) return false;
     if (c._clmin < f.clrMin) return false;
   }
 
-  // SF range
-  if (f.sfMin != null) {
-    if (c._sf_n == null || c._sf_n < f.sfMin) return false;
-  }
-  if (f.sfMax != null) {
-    if (c._sf_n == null || c._sf_n > f.sfMax) return false;
-  }
+  if (f.sfMin != null) { if (c._sf_n == null || c._sf_n < f.sfMin) return false; }
+  if (f.sfMax != null) { if (c._sf_n == null || c._sf_n > f.sfMax) return false; }
 
-  // Date range — apply only if _diso exists; otherwise allow through (don't penalize missing dates)
   if (f.dtFrom && c._diso && c._diso < f.dtFrom) return false;
-  if (f.dtTo && c._diso && c._diso > f.dtTo) return false;
+  if (f.dtTo   && c._diso && c._diso > f.dtTo)   return false;
 
-  // Price range — only applies to sale layers
-  if ((f.pMin != null || f.pMax != null) && SALE_LAYERS.has(c.l)) {
-    if (c._p_n == null) return false;
-    if (f.pMin != null && c._p_n < f.pMin) return false;
-    if (f.pMax != null && c._p_n > f.pMax) return false;
-  }
-  // $/SF — sale layers
   if ((f.psfMin != null || f.psfMax != null) && SALE_LAYERS.has(c.l)) {
     if (c._psf_n == null) return false;
     if (f.psfMin != null && c._psf_n < f.psfMin) return false;
     if (f.psfMax != null && c._psf_n > f.psfMax) return false;
   }
-  // Rent — lease layers
   if ((f.rentMin != null || f.rentMax != null) && LEASE_LAYERS.has(c.l)) {
     if (c._rent_n == null) return false;
     if (f.rentMin != null && c._rent_n < f.rentMin) return false;
     if (f.rentMax != null && c._rent_n > f.rentMax) return false;
   }
-  // Rent $/ac — IOS rent
   if ((f.racMin != null || f.racMax != null) && IOS_RENT_LAYERS.has(c.l)) {
     if (c._rac_n == null) return false;
     if (f.racMin != null && c._rac_n < f.racMin) return false;
     if (f.racMax != null && c._rac_n > f.racMax) return false;
   }
-
   return true;
 }
 
 let FILTERED = [];
 
 function applyFilters() {
-  const f = getActiveFilters();
-  FILTERED = ALL.filter(c => filterRow(c, f));
+  FILTERED = ALL.filter(c => filterRow(c, FILTER_STATE));
   sortFiltered();
   renderTable();
   document.getElementById('count-num').textContent = FILTERED.length.toLocaleString();
@@ -359,7 +768,7 @@ function sortFiltered() {
   FILTERED.sort((a, b) => {
     const av = a[SORT_KEY], bv = b[SORT_KEY];
     if (av == null && bv == null) return 0;
-    if (av == null) return 1;   // nulls last
+    if (av == null) return 1;
     if (bv == null) return -1;
     if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * SORT_DIR;
     return String(av).localeCompare(String(bv)) * SORT_DIR;
@@ -383,30 +792,31 @@ function renderTable() {
       <th data-sort="sm">Submarket</th>
       <th data-sort="_diso">Date</th>
       <th data-sort="_sf_n">Size</th>
-      <th data-sort="_p_n">Sale Price</th>
       <th data-sort="_psf_n">$/SF</th>
       <th data-sort="_rent_n">Rent $/SF</th>
       <th data-sort="_rac_n">Rent $/ac</th>
       <th data-sort="cap">Cap</th>
       <th data-sort="_cls">Class</th>
       <th data-sort="_clmin">Clear</th>
+      <th style="text-align:center;width:32px;"></th>
     </tr></thead>
     <tbody>`;
   for (const c of rows) {
-    html += `<tr>
+    const href = (c.row != null && c.l) ? `index.html?focus=${encodeURIComponent(c.row)}&layer=${encodeURIComponent(c.l)}` : '';
+    html += `<tr data-href="${escAttr(href)}" title="Click to open on map">
       <td><span class="layer-pill lyr-${c.l}">${LAYER_LABELS[c.l]||c.l}</span></td>
-      <td>${escape(c.a)}</td>
-      <td>${escape(c._m||'')}</td>
-      <td>${escape(c.sm||'')}</td>
-      <td>${escape(c._diso||c.dt||'')}</td>
+      <td>${escHtml(c.a)}</td>
+      <td>${escHtml(c._m||'')}</td>
+      <td>${escHtml(c.sm||'')}</td>
+      <td>${escHtml(c._diso||c.dt||'')}</td>
       <td>${c._sf_n != null ? c._sf_n.toLocaleString() : ''}</td>
-      <td>${c._p_n != null ? '$'+c._p_n.toLocaleString() : ''}</td>
       <td>${c._psf_n != null ? '$'+c._psf_n.toFixed(2) : ''}</td>
       <td>${c._rent_n != null ? '$'+c._rent_n.toFixed(2) : ''}</td>
       <td>${c._rac_n != null ? '$'+c._rac_n.toLocaleString() : ''}</td>
-      <td>${escape(c.cap||'')}</td>
-      <td>${escape(c._cls||'')}</td>
+      <td>${escHtml(c.cap||'')}</td>
+      <td>${escHtml(c._cls||'')}</td>
       <td>${c._clmin != null ? (c._clmin === c._clmax ? c._clmin+"'": c._clmin+"-"+c._clmax+"'") : ''}</td>
+      <td style="text-align:center;">${href ? `<a class="pin-icon" href="${escAttr(href)}" title="Open on map" aria-label="Open on map">&#x1F4CD;</a>` : ''}</td>
     </tr>`;
   }
   html += '</tbody></table>';
@@ -414,19 +824,45 @@ function renderTable() {
     html += `<div style="padding:12px;text-align:center;color:var(--muted);font-size:11px;">Showing first ${CAP.toLocaleString()} of ${FILTERED.length.toLocaleString()}. Narrow filters to see more, or export CSV for the full set.</div>`;
   }
   wrap.innerHTML = html;
-  // Wire up sort
+
+  // Wire up sort headers
   document.querySelectorAll('thead th').forEach(th => {
     const k = th.dataset.sort;
+    if (!k) return;
     if (k === SORT_KEY) th.classList.add('sorted');
     th.addEventListener('click', () => {
       if (SORT_KEY === k) SORT_DIR *= -1; else { SORT_KEY = k; SORT_DIR = -1; }
       sortFiltered(); renderTable();
     });
   });
+
+  // Wire up row click → deep link to map
+  document.querySelectorAll('tbody tr').forEach(tr => {
+    const href = tr.dataset.href;
+    if (!href) return;
+    tr.addEventListener('click', (e) => {
+      // Ignore if the user actually clicked the dedicated icon anchor — let it bubble naturally
+      if (e.target.closest('a')) return;
+      if (e.metaKey || e.ctrlKey || e.shiftKey) {
+        window.open(href, '_blank');
+      } else {
+        window.location.href = href;
+      }
+    });
+    tr.addEventListener('auxclick', (e) => {
+      if (e.button === 1) {
+        e.preventDefault();
+        window.open(href, '_blank');
+      }
+    });
+  });
 }
 
-function escape(s) {
-  return String(s||'').replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'})[c]);
+function escHtml(s) {
+  return String(s == null ? '' : s).replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'})[c]);
+}
+function escAttr(s) {
+  return String(s == null ? '' : s).replace(/[&"<>]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'})[c]);
 }
 
 function exportCSV() {
@@ -439,7 +875,6 @@ function exportCSV() {
     {k:'_diso', label:'Date (ISO)'},
     {k:'dt', label:'Date (raw)'},
     {k:'_sf_n', label:'Size SF'},
-    {k:'_p_n', label:'Sale Price'},
     {k:'_psf_n', label:'$/SF'},
     {k:'_rent_n', label:'Rent $/SF'},
     {k:'_rac_n', label:'Rent $/ac/mo'},
@@ -477,9 +912,30 @@ function exportCSV() {
 }
 
 function clearAll() {
-  document.querySelectorAll('.layer-chk, .market-chk').forEach(c => c.checked = true);
-  document.querySelectorAll('input[name=cls]').forEach(c => { c.checked = (c.value === ''); });
-  ['clr-min','sf-min','sf-max','dt-from','dt-to','p-min','p-max','psf-min','psf-max','rent-min','rent-max','rac-min','rac-max'].forEach(id => document.getElementById(id).value = '');
+  // Re-check all layers + markets
+  FILTER_STATE.allLayers.forEach(k => FILTER_STATE.layers.add(k));
+  document.querySelectorAll('[data-popup="flt-layer"] [data-layer]').forEach(c => c.checked = true);
+
+  FILTER_STATE.allMarkets.forEach(m => FILTER_STATE.markets.add(m));
+  document.querySelectorAll('[data-popup="flt-market"] [data-market]').forEach(c => c.checked = true);
+
+  FILTER_STATE.cls = '';
+  document.querySelectorAll('[data-popup="flt-class"] input[name=cls]').forEach(r => r.checked = (r.value === ''));
+
+  FILTER_STATE.clrMin = null;
+  FILTER_STATE.sfMin = null; FILTER_STATE.sfMax = null;
+  FILTER_STATE.dtFrom = ''; FILTER_STATE.dtTo = ''; FILTER_STATE.dtPreset = '';
+  FILTER_STATE.psfMin = null; FILTER_STATE.psfMax = null;
+  FILTER_STATE.rentMin = null; FILTER_STATE.rentMax = null;
+  FILTER_STATE.racMin = null; FILTER_STATE.racMax = null;
+
+  ['clr-min','sf-min','sf-max','dt-from','dt-to','psf-min','psf-max','rent-min','rent-max','rac-min','rac-max'].forEach(id => {
+    const el = document.querySelector(`#${id}`);
+    if (el) el.value = '';
+  });
+  document.querySelectorAll('.btn-preset').forEach(b => b.classList.remove('active'));
+
+  updateAllSummaries();
   applyFilters();
 }
 
