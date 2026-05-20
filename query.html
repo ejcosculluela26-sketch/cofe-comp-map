@@ -96,15 +96,58 @@ body { margin: 0; font-family: 'Segoe UI', Arial, sans-serif; background: var(--
 }
 .popup.open { display: block; }
 
-/* Wider variant for multi-select popups (Comp Layer / Market) — guarantees
-   enough room for the longest label. The sidebar-scroll container has
-   overflow-y:auto which also clips horizontally, so we keep the popup within
-   the sidebar bounds; the inner labels fit comfortably at this width. */
-.popup-multi {
+/* Multi-select popup container (Comp Layer / Market).
+   Vertical scroll OK, horizontal scroll NEVER — overflow-x: hidden
+   guarantees no horizontal scrollbar regardless of inner sizing quirks. */
+.multi-select-popup {
   left: 8px;
-  right: 8px;
-  min-width: 240px;
-  max-width: 320px;
+  right: auto;
+  min-width: 260px;
+  max-width: 340px;
+  overflow-x: hidden;
+}
+
+/* Multi-select row layout — explicit per V1.2.1 spec.
+   The generic `input, select { width: 100% }` rule below applies to
+   checkboxes too, which is what broke the V1.2 layout (checkbox stretched
+   to fill the flex row, squashing label span to 0 width). Explicit
+   width + flex on the checkbox here overrides it. */
+.multi-select-popup .opt-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+.multi-select-popup .opt-row:hover {
+  background: rgba(99, 102, 241, 0.10);
+}
+.multi-select-popup .opt-row input[type=checkbox] {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+  cursor: pointer;
+  margin: 0;
+  padding: 0;
+}
+.multi-select-popup .opt-row .opt-label {
+  flex: 1 1 auto;
+  color: var(--text);
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.multi-select-popup .opt-row .opt-count {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  min-width: 40px;
+  text-align: right;
 }
 
 .popup .pop-title {
@@ -174,10 +217,16 @@ body { margin: 0; font-family: 'Segoe UI', Arial, sans-serif; background: var(--
 }
 .chk-item:hover { background: rgba(99, 102, 241, 0.08); }
 .chk-item input {
+  /* Override the generic `input { width:100% }` rule — without an explicit
+     width here, radios/checkboxes stretch to fill the flex row and squash
+     adjacent content to 0 width. */
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
   margin: 0;
+  padding: 0;
   cursor: pointer;
   accent-color: var(--accent);
-  flex-shrink: 0;
 }
 .chk-item .nm {
   flex: 1;
@@ -412,7 +461,7 @@ function buildSidebar() {
     const row = document.createElement('div');
     row.className = 'flt-row';
     row.dataset.id = spec.id;
-    const multiClass = (spec.id === 'flt-layer' || spec.id === 'flt-market') ? ' popup-multi' : '';
+    const multiClass = (spec.id === 'flt-layer' || spec.id === 'flt-market') ? ' multi-select-popup' : '';
     row.innerHTML = `
       <div class="label">${spec.label}</div>
       <div class="right">
@@ -445,10 +494,10 @@ function renderPopupContent(spec, layerCounts, marketCounts) {
 
   if (spec.id === 'flt-layer') {
     FILTER_STATE.allLayers.forEach(k => {
-      inner += `<label class="chk-item">
+      inner += `<label class="opt-row">
         <input type="checkbox" data-layer="${k}" checked>
-        <span class="nm">${LAYER_LABELS[k]||k}</span>
-        <span class="cnt">${(layerCounts[k]||0).toLocaleString()}</span>
+        <span class="opt-label">${escHtml(LAYER_LABELS[k]||k)}</span>
+        <span class="opt-count">${(layerCounts[k]||0).toLocaleString()}</span>
       </label>`;
     });
     inner += `<div class="action-row">
@@ -458,10 +507,10 @@ function renderPopupContent(spec, layerCounts, marketCounts) {
     <button class="btn-done" data-action="done">Done</button>`;
   } else if (spec.id === 'flt-market') {
     FILTER_STATE.allMarkets.forEach(m => {
-      inner += `<label class="chk-item">
+      inner += `<label class="opt-row">
         <input type="checkbox" data-market="${escAttr(m)}" checked>
-        <span class="nm">${escHtml(m)}</span>
-        <span class="cnt">${(marketCounts[m]||0).toLocaleString()}</span>
+        <span class="opt-label">${escHtml(m)}</span>
+        <span class="opt-count">${(marketCounts[m]||0).toLocaleString()}</span>
       </label>`;
     });
     inner += `<div class="action-row">
