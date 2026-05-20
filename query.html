@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>COFE Comp Query Builder</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+:root {
+  --bg: #0b1220;
+  --panel: #1e1e2e;
+  --border: #2a2a3e;
+  --text: #e4e4e7;
+  --muted: #6a6a8a;
+  --accent: #6366f1;
+  --hl: #fbbf24;
+}
+* { box-sizing: border-box; }
+body { margin: 0; font-family: 'Segoe UI', Arial, sans-serif; background: var(--bg); color: var(--text); overflow: hidden; }
+.app { display: flex; height: 100vh; }
+#sidebar { width: 310px; background: var(--panel); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow-y: auto; }
+#main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+.hd { padding: 16px; border-bottom: 1px solid var(--border); }
+.hd h1 { margin: 0; font-size: 14px; font-weight: 700; letter-spacing: 0.5px; }
+.hd .sub { font-size: 10px; color: var(--muted); margin-top: 3px; letter-spacing: 0.3px; }
+.hd a { color: var(--accent); text-decoration: none; font-size: 11px; font-weight: 600; }
+
+.sec { padding: 12px 16px 10px; border-bottom: 1px solid var(--border); }
+.sec-title { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 8px; }
+.row-grid { display: grid; gap: 4px; }
+.row-2 { grid-template-columns: 1fr 1fr; gap: 6px; }
+.chk-item { display: flex; align-items: center; padding: 4px 0; font-size: 12px; cursor: pointer; }
+.chk-item input { margin-right: 8px; }
+.range-row { display: flex; gap: 6px; align-items: center; font-size: 12px; }
+.range-row input[type=number] { flex: 1; }
+.range-row .sep { color: var(--muted); }
+input, select { width: 100%; padding: 5px 7px; background: #16162a; border: 1px solid var(--border); color: var(--text); border-radius: 4px; font-size: 12px; }
+input[type=date] { color-scheme: dark; }
+.btn-row { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 6px; }
+.btn-preset { padding: 4px 8px; font-size: 10px; background: #16162a; border: 1px solid var(--border); color: var(--text); border-radius: 4px; cursor: pointer; font-weight: 600; }
+.btn-preset:hover { background: var(--accent); border-color: var(--accent); }
+.btn-clear { padding: 6px 12px; font-size: 11px; background: #16162a; border: 1px solid var(--border); color: var(--text); border-radius: 4px; cursor: pointer; width: 100%; margin-top: 8px; font-weight: 600; }
+.btn-clear:hover { background: #2d2d4a; }
+
+.toolbar { padding: 12px 16px; background: var(--panel); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 16px; }
+.count-badge { font-size: 13px; font-weight: 700; }
+.count-num { color: var(--accent); font-size: 18px; }
+.tools { margin-left: auto; display: flex; gap: 8px; }
+.btn-export { padding: 7px 14px; background: var(--accent); border: none; color: white; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 12px; }
+.btn-export:hover { filter: brightness(1.1); }
+.btn-back { padding: 7px 14px; background: #16162a; border: 1px solid var(--border); color: var(--text); border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 12px; text-decoration: none; display: inline-block; }
+
+#table-wrap { flex: 1; overflow: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 12px; }
+thead th { background: var(--panel); position: sticky; top: 0; padding: 9px 8px; text-align: left; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; font-size: 10px; border-bottom: 2px solid var(--border); cursor: pointer; user-select: none; white-space: nowrap; }
+thead th:hover { color: var(--text); }
+thead th.sorted { color: var(--accent); }
+tbody td { padding: 8px; border-bottom: 1px solid var(--border); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 280px; }
+tbody tr:hover { background: #16162a; }
+.layer-pill { display: inline-block; padding: 2px 7px; border-radius: 8px; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; }
+.lyr-ind_sale { background: rgba(245, 158, 11, 0.2); color: #f59e0b; }
+.lyr-ind_lease { background: rgba(168, 85, 247, 0.2); color: #c084fc; }
+.lyr-ios_sale { background: rgba(34, 197, 94, 0.2); color: #4ade80; }
+.lyr-ios_rent { background: rgba(20, 184, 166, 0.2); color: #2dd4bf; }
+.lyr-land_sale { background: rgba(132, 204, 22, 0.2); color: #a3e635; }
+.lyr-ind_pipeline { background: rgba(99, 102, 241, 0.2); color: #818cf8; }
+.lyr-ios_pipeline { background: rgba(99, 102, 241, 0.2); color: #818cf8; }
+.lyr-cofe_owned { background: rgba(250, 204, 21, 0.25); color: #fde047; }
+.lyr-cofe_sold { background: rgba(239, 68, 68, 0.25); color: #fca5a5; }
+.empty-state { padding: 40px; text-align: center; color: var(--muted); font-size: 14px; }
+.loader { padding: 40px; text-align: center; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="app">
+  <div id="sidebar">
+    <div class="hd">
+      <h1>COFE COMP QUERY BUILDER</h1>
+      <div class="sub">Filter, sort, export</div>
+      <div style="margin-top:8px;"><a href="index.html">&larr; Back to map</a></div>
+    </div>
+
+    <div class="sec">
+      <div class="sec-title">Comp Layer</div>
+      <div id="filt-layer"></div>
+    </div>
+
+    <div class="sec">
+      <div class="sec-title">Market</div>
+      <div id="filt-market"></div>
+    </div>
+
+    <div class="sec">
+      <div class="sec-title">Class</div>
+      <label class="chk-item"><input type="radio" name="cls" value="" checked> All</label>
+      <label class="chk-item"><input type="radio" name="cls" value="A"> Class A</label>
+      <label class="chk-item"><input type="radio" name="cls" value="B+C"> Class B / C</label>
+    </div>
+
+    <div class="sec">
+      <div class="sec-title">Clear Height (Min)</div>
+      <div class="range-row">
+        <input type="number" id="clr-min" placeholder="e.g. 24" min="0" max="60" step="1">
+        <span style="font-size:11px;color:var(--muted);">ft</span>
+      </div>
+    </div>
+
+    <div class="sec">
+      <div class="sec-title">Size (SF)</div>
+      <div class="range-row">
+        <input type="number" id="sf-min" placeholder="Min" min="0" step="100">
+        <span class="sep">to</span>
+        <input type="number" id="sf-max" placeholder="Max" min="0" step="100">
+      </div>
+    </div>
+
+    <div class="sec">
+      <div class="sec-title">Date Signed</div>
+      <div class="range-row">
+        <input type="date" id="dt-from">
+        <span class="sep">to</span>
+        <input type="date" id="dt-to">
+      </div>
+      <div class="btn-row">
+        <button class="btn-preset" data-preset="last90">Last 90d</button>
+        <button class="btn-preset" data-preset="last6mo">Last 6mo</button>
+        <button class="btn-preset" data-preset="last12mo">Last 12mo</button>
+        <button class="btn-preset" data-preset="ytd">YTD</button>
+        <button class="btn-preset" data-preset="all">All</button>
+      </div>
+    </div>
+
+    <div class="sec">
+      <div class="sec-title">Sale Price ($) — sale layers</div>
+      <div class="range-row">
+        <input type="number" id="p-min" placeholder="Min" min="0" step="100000">
+        <span class="sep">to</span>
+        <input type="number" id="p-max" placeholder="Max" min="0" step="100000">
+      </div>
+    </div>
+
+    <div class="sec">
+      <div class="sec-title">$/SF — sale layers</div>
+      <div class="range-row">
+        <input type="number" id="psf-min" placeholder="Min" min="0" step="5">
+        <span class="sep">to</span>
+        <input type="number" id="psf-max" placeholder="Max" min="0" step="5">
+      </div>
+    </div>
+
+    <div class="sec">
+      <div class="sec-title">Rent ($/SF/yr) — lease layers</div>
+      <div class="range-row">
+        <input type="number" id="rent-min" placeholder="Min" min="0" step="0.5">
+        <span class="sep">to</span>
+        <input type="number" id="rent-max" placeholder="Max" min="0" step="0.5">
+      </div>
+    </div>
+
+    <div class="sec">
+      <div class="sec-title">Rent ($/ac/mo) — IOS rent</div>
+      <div class="range-row">
+        <input type="number" id="rac-min" placeholder="Min" min="0" step="500">
+        <span class="sep">to</span>
+        <input type="number" id="rac-max" placeholder="Max" min="0" step="500">
+      </div>
+    </div>
+
+    <div class="sec">
+      <button class="btn-clear" onclick="clearAll()">Clear All Filters</button>
+    </div>
+  </div>
+
+  <div id="main">
+    <div class="toolbar">
+      <div class="count-badge"><span class="count-num" id="count-num">0</span> comps match your filters</div>
+      <div class="tools">
+        <button class="btn-export" onclick="exportCSV()">&#x2B07; Export CSV</button>
+      </div>
+    </div>
+    <div id="table-wrap">
+      <div class="loader" id="loader">Loading data.json…</div>
+    </div>
+  </div>
+</div>
+
+<script>
+let ALL = [];
+let SORT_KEY = '_diso';
+let SORT_DIR = -1;   // -1 desc, +1 asc
+
+const LAYER_LABELS = {
+  ind_sale: 'Industrial Sale',
+  ind_lease: 'Industrial Lease',
+  ios_sale: 'IOS Sale',
+  ios_rent: 'IOS Rent',
+  land_sale: 'Land / Spec',
+  ind_pipeline: 'Pipeline (Ind)',
+  ios_pipeline: 'Pipeline (IOS)',
+  cofe_owned: 'COFE Owned',
+  cofe_sold: 'COFE Sold',
+};
+const SALE_LAYERS = new Set(['ind_sale','ios_sale','land_sale']);
+const LEASE_LAYERS = new Set(['ind_lease']);
+const IOS_RENT_LAYERS = new Set(['ios_rent']);
+
+function buildSidebar() {
+  // Layers — show counts dynamically
+  const layerCounts = {};
+  ALL.forEach(c => { layerCounts[c.l] = (layerCounts[c.l]||0) + 1; });
+  const layerDiv = document.getElementById('filt-layer');
+  Object.entries(LAYER_LABELS).forEach(([k, label]) => {
+    if (!layerCounts[k]) return;
+    const lbl = document.createElement('label');
+    lbl.className = 'chk-item';
+    lbl.innerHTML = `<input type="checkbox" class="layer-chk" value="${k}" checked> ${label} <span style="color:var(--muted);margin-left:auto;font-size:10px;">${layerCounts[k]}</span>`;
+    layerDiv.appendChild(lbl);
+  });
+
+  // Markets — pulled from _m field
+  const marketCounts = {};
+  ALL.forEach(c => {
+    const m = (c._m || '').trim() || '(Unspecified)';
+    marketCounts[m] = (marketCounts[m]||0) + 1;
+  });
+  const marketDiv = document.getElementById('filt-market');
+  const sortedMarkets = Object.entries(marketCounts).sort((a,b) => b[1]-a[1]);
+  sortedMarkets.forEach(([m, n]) => {
+    const lbl = document.createElement('label');
+    lbl.className = 'chk-item';
+    lbl.innerHTML = `<input type="checkbox" class="market-chk" value="${m}" checked> ${m} <span style="color:var(--muted);margin-left:auto;font-size:10px;">${n}</span>`;
+    marketDiv.appendChild(lbl);
+  });
+
+  // Wire up all inputs to trigger filter
+  document.querySelectorAll('input, select').forEach(el => {
+    el.addEventListener('input', applyFilters);
+    el.addEventListener('change', applyFilters);
+  });
+
+  // Date presets
+  document.querySelectorAll('.btn-preset').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      applyDatePreset(btn.dataset.preset);
+    });
+  });
+}
+
+function applyDatePreset(p) {
+  const today = new Date();
+  const ymd = d => d.toISOString().slice(0,10);
+  const dtFrom = document.getElementById('dt-from');
+  const dtTo = document.getElementById('dt-to');
+  if (p === 'all') {
+    dtFrom.value = ''; dtTo.value = '';
+  } else if (p === 'ytd') {
+    dtFrom.value = `${today.getFullYear()}-01-01`; dtTo.value = ymd(today);
+  } else {
+    const from = new Date(today);
+    if (p === 'last90') from.setDate(from.getDate() - 90);
+    if (p === 'last6mo') from.setMonth(from.getMonth() - 6);
+    if (p === 'last12mo') from.setMonth(from.getMonth() - 12);
+    dtFrom.value = ymd(from); dtTo.value = ymd(today);
+  }
+  applyFilters();
+}
+
+function getActiveFilters() {
+  const layers = new Set([...document.querySelectorAll('.layer-chk:checked')].map(c => c.value));
+  const markets = new Set([...document.querySelectorAll('.market-chk:checked')].map(c => c.value));
+  const cls = document.querySelector('input[name=cls]:checked').value;
+  const clrMin = parseFloat(document.getElementById('clr-min').value) || null;
+  const sfMin = parseFloat(document.getElementById('sf-min').value) || null;
+  const sfMax = parseFloat(document.getElementById('sf-max').value) || null;
+  const dtFrom = document.getElementById('dt-from').value || null;
+  const dtTo = document.getElementById('dt-to').value || null;
+  const pMin = parseFloat(document.getElementById('p-min').value) || null;
+  const pMax = parseFloat(document.getElementById('p-max').value) || null;
+  const psfMin = parseFloat(document.getElementById('psf-min').value) || null;
+  const psfMax = parseFloat(document.getElementById('psf-max').value) || null;
+  const rentMin = parseFloat(document.getElementById('rent-min').value) || null;
+  const rentMax = parseFloat(document.getElementById('rent-max').value) || null;
+  const racMin = parseFloat(document.getElementById('rac-min').value) || null;
+  const racMax = parseFloat(document.getElementById('rac-max').value) || null;
+  return { layers, markets, cls, clrMin, sfMin, sfMax, dtFrom, dtTo, pMin, pMax, psfMin, psfMax, rentMin, rentMax, racMin, racMax };
+}
+
+function filterRow(c, f) {
+  if (!f.layers.has(c.l)) return false;
+  const mk = (c._m || '').trim() || '(Unspecified)';
+  if (!f.markets.has(mk)) return false;
+
+  // Class — only filters sale comps that have a class_norm
+  if (f.cls) {
+    if (c.l === 'ind_sale') {
+      if ((c._cls || '') !== f.cls) return false;
+    }
+    // For lease/IOS/etc., class filter is a no-op (don't exclude — they have no class)
+  }
+
+  // Clear height (min): only applies where _clmin exists
+  if (f.clrMin != null) {
+    if (c._clmin == null) return false;   // strict: no clear height = exclude when filter active
+    if (c._clmin < f.clrMin) return false;
+  }
+
+  // SF range
+  if (f.sfMin != null) {
+    if (c._sf_n == null || c._sf_n < f.sfMin) return false;
+  }
+  if (f.sfMax != null) {
+    if (c._sf_n == null || c._sf_n > f.sfMax) return false;
+  }
+
+  // Date range — apply only if _diso exists; otherwise allow through (don't penalize missing dates)
+  if (f.dtFrom && c._diso && c._diso < f.dtFrom) return false;
+  if (f.dtTo && c._diso && c._diso > f.dtTo) return false;
+
+  // Price range — only applies to sale layers
+  if ((f.pMin != null || f.pMax != null) && SALE_LAYERS.has(c.l)) {
+    if (c._p_n == null) return false;
+    if (f.pMin != null && c._p_n < f.pMin) return false;
+    if (f.pMax != null && c._p_n > f.pMax) return false;
+  }
+  // $/SF — sale layers
+  if ((f.psfMin != null || f.psfMax != null) && SALE_LAYERS.has(c.l)) {
+    if (c._psf_n == null) return false;
+    if (f.psfMin != null && c._psf_n < f.psfMin) return false;
+    if (f.psfMax != null && c._psf_n > f.psfMax) return false;
+  }
+  // Rent — lease layers
+  if ((f.rentMin != null || f.rentMax != null) && LEASE_LAYERS.has(c.l)) {
+    if (c._rent_n == null) return false;
+    if (f.rentMin != null && c._rent_n < f.rentMin) return false;
+    if (f.rentMax != null && c._rent_n > f.rentMax) return false;
+  }
+  // Rent $/ac — IOS rent
+  if ((f.racMin != null || f.racMax != null) && IOS_RENT_LAYERS.has(c.l)) {
+    if (c._rac_n == null) return false;
+    if (f.racMin != null && c._rac_n < f.racMin) return false;
+    if (f.racMax != null && c._rac_n > f.racMax) return false;
+  }
+
+  return true;
+}
+
+let FILTERED = [];
+
+function applyFilters() {
+  const f = getActiveFilters();
+  FILTERED = ALL.filter(c => filterRow(c, f));
+  sortFiltered();
+  renderTable();
+  document.getElementById('count-num').textContent = FILTERED.length.toLocaleString();
+}
+
+function sortFiltered() {
+  FILTERED.sort((a, b) => {
+    const av = a[SORT_KEY], bv = b[SORT_KEY];
+    if (av == null && bv == null) return 0;
+    if (av == null) return 1;   // nulls last
+    if (bv == null) return -1;
+    if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * SORT_DIR;
+    return String(av).localeCompare(String(bv)) * SORT_DIR;
+  });
+}
+
+function renderTable() {
+  const wrap = document.getElementById('table-wrap');
+  if (FILTERED.length === 0) {
+    wrap.innerHTML = '<div class="empty-state">No comps match the current filters. Try widening your criteria.</div>';
+    return;
+  }
+  const CAP = 1000;
+  const rows = FILTERED.slice(0, CAP);
+
+  let html = `<table>
+    <thead><tr>
+      <th data-sort="l">Layer</th>
+      <th data-sort="a">Address</th>
+      <th data-sort="_m">Market</th>
+      <th data-sort="sm">Submarket</th>
+      <th data-sort="_diso">Date</th>
+      <th data-sort="_sf_n">Size</th>
+      <th data-sort="_p_n">Sale Price</th>
+      <th data-sort="_psf_n">$/SF</th>
+      <th data-sort="_rent_n">Rent $/SF</th>
+      <th data-sort="_rac_n">Rent $/ac</th>
+      <th data-sort="cap">Cap</th>
+      <th data-sort="_cls">Class</th>
+      <th data-sort="_clmin">Clear</th>
+    </tr></thead>
+    <tbody>`;
+  for (const c of rows) {
+    html += `<tr>
+      <td><span class="layer-pill lyr-${c.l}">${LAYER_LABELS[c.l]||c.l}</span></td>
+      <td>${escape(c.a)}</td>
+      <td>${escape(c._m||'')}</td>
+      <td>${escape(c.sm||'')}</td>
+      <td>${escape(c._diso||c.dt||'')}</td>
+      <td>${c._sf_n != null ? c._sf_n.toLocaleString() : ''}</td>
+      <td>${c._p_n != null ? '$'+c._p_n.toLocaleString() : ''}</td>
+      <td>${c._psf_n != null ? '$'+c._psf_n.toFixed(2) : ''}</td>
+      <td>${c._rent_n != null ? '$'+c._rent_n.toFixed(2) : ''}</td>
+      <td>${c._rac_n != null ? '$'+c._rac_n.toLocaleString() : ''}</td>
+      <td>${escape(c.cap||'')}</td>
+      <td>${escape(c._cls||'')}</td>
+      <td>${c._clmin != null ? (c._clmin === c._clmax ? c._clmin+"'": c._clmin+"-"+c._clmax+"'") : ''}</td>
+    </tr>`;
+  }
+  html += '</tbody></table>';
+  if (FILTERED.length > CAP) {
+    html += `<div style="padding:12px;text-align:center;color:var(--muted);font-size:11px;">Showing first ${CAP.toLocaleString()} of ${FILTERED.length.toLocaleString()}. Narrow filters to see more, or export CSV for the full set.</div>`;
+  }
+  wrap.innerHTML = html;
+  // Wire up sort
+  document.querySelectorAll('thead th').forEach(th => {
+    const k = th.dataset.sort;
+    if (k === SORT_KEY) th.classList.add('sorted');
+    th.addEventListener('click', () => {
+      if (SORT_KEY === k) SORT_DIR *= -1; else { SORT_KEY = k; SORT_DIR = -1; }
+      sortFiltered(); renderTable();
+    });
+  });
+}
+
+function escape(s) {
+  return String(s||'').replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'})[c]);
+}
+
+function exportCSV() {
+  if (FILTERED.length === 0) { alert('No results to export.'); return; }
+  const cols = [
+    {k:'l', label:'Layer'},
+    {k:'a', label:'Address'},
+    {k:'_m', label:'Market'},
+    {k:'sm', label:'Submarket'},
+    {k:'_diso', label:'Date (ISO)'},
+    {k:'dt', label:'Date (raw)'},
+    {k:'_sf_n', label:'Size SF'},
+    {k:'_p_n', label:'Sale Price'},
+    {k:'_psf_n', label:'$/SF'},
+    {k:'_rent_n', label:'Rent $/SF'},
+    {k:'_rac_n', label:'Rent $/ac/mo'},
+    {k:'cap', label:'Cap Rate'},
+    {k:'_cls', label:'Class'},
+    {k:'_clmin', label:'Clear Min'},
+    {k:'_clmax', label:'Clear Max'},
+    {k:'seller', label:'Seller'},
+    {k:'buyer', label:'Buyer'},
+    {k:'tenant', label:'Tenant'},
+    {k:'landlord', label:'Landlord'},
+    {k:'rent_type', label:'Rent Type'},
+    {k:'lease_term', label:'Lease Term'},
+    {k:'year_built', label:'Year Built'},
+    {k:'source', label:'Source'},
+    {k:'lat', label:'Lat'},
+    {k:'lng', label:'Lng'},
+    {k:'row', label:'DB Row ID'},
+  ];
+  const header = cols.map(c => c.label).join(',');
+  const rows = FILTERED.map(c => cols.map(col => {
+    let v = c[col.k];
+    if (v == null) return '';
+    v = String(v);
+    if (v.includes(',') || v.includes('"') || v.includes('\n')) v = '"' + v.replace(/"/g, '""') + '"';
+    return v;
+  }).join(','));
+  const csv = header + '\n' + rows.join('\n');
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const today = new Date().toISOString().slice(0,10);
+  const a = document.createElement('a');
+  a.href = url; a.download = `cofe_comps_${today}.csv`;
+  a.click(); URL.revokeObjectURL(url);
+}
+
+function clearAll() {
+  document.querySelectorAll('.layer-chk, .market-chk').forEach(c => c.checked = true);
+  document.querySelectorAll('input[name=cls]').forEach(c => { c.checked = (c.value === ''); });
+  ['clr-min','sf-min','sf-max','dt-from','dt-to','p-min','p-max','psf-min','psf-max','rent-min','rent-max','rac-min','rac-max'].forEach(id => document.getElementById(id).value = '');
+  applyFilters();
+}
+
+// Load
+fetch('data.json')
+  .then(r => r.json())
+  .then(data => { ALL = data; buildSidebar(); applyFilters(); })
+  .catch(e => { document.getElementById('table-wrap').innerHTML = '<div class="empty-state">Failed to load data.json: ' + e.message + '</div>'; });
+</script>
+</body>
+</html>
