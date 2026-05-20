@@ -85,24 +85,42 @@ body { margin: 0; font-family: 'Segoe UI', Arial, sans-serif; background: var(--
   border: 1px solid var(--accent);
   border-radius: 6px;
   padding: 12px;
-  box-shadow: 0 8px 22px rgba(0,0,0,0.45);
+  /* Drop shadow + subtle inset edges that hint at scrollability when content overflows */
+  box-shadow:
+    0 8px 22px rgba(0,0,0,0.45),
+    inset 0 6px 6px -6px rgba(0,0,0,0.55),
+    inset 0 -6px 6px -6px rgba(0,0,0,0.55);
   max-height: 380px;
   overflow-y: auto;
   margin-top: 2px;
 }
 .popup.open { display: block; }
+
+/* Wider variant for multi-select popups (Comp Layer / Market) — guarantees
+   enough room for the longest label. The sidebar-scroll container has
+   overflow-y:auto which also clips horizontally, so we keep the popup within
+   the sidebar bounds; the inner labels fit comfortably at this width. */
+.popup-multi {
+  left: 8px;
+  right: 8px;
+  min-width: 240px;
+  max-width: 320px;
+}
+
 .popup .pop-title {
   font-size: 10px;
   font-weight: 700;
   color: var(--muted);
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: 1.2px;
   margin-bottom: 10px;
 }
-.popup .done-row {
+
+/* Footer rows */
+.popup .action-row {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
   margin-top: 10px;
   padding-top: 10px;
   border-top: 1px solid var(--border);
@@ -117,27 +135,64 @@ body { margin: 0; font-family: 'Segoe UI', Arial, sans-serif; background: var(--
   cursor: pointer;
   font-weight: 600;
 }
-.popup .btn-mini:hover { background: var(--border); }
+.popup .btn-mini:hover { background: var(--border); border-color: var(--accent); }
 .popup .btn-done {
-  padding: 5px 14px;
+  width: 100%;
+  padding: 7px 12px;
+  margin-top: 8px;
   font-size: 11px;
-  background: var(--accent);
-  border: none;
-  color: white;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  color: var(--text);
   border-radius: 4px;
   cursor: pointer;
   font-weight: 600;
+  letter-spacing: 0.3px;
+}
+.popup .btn-done:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+/* When Done sits directly under content (no action-row above), keep the divider */
+.popup .btn-done.standalone {
+  margin-top: 10px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  border-radius: 0 0 4px 4px;
 }
 
+/* Checkbox rows inside multi-select popups */
 .chk-item {
   display: flex;
   align-items: center;
-  padding: 4px 0;
+  gap: 8px;
+  padding: 6px 4px;
+  border-radius: 4px;
   font-size: 12px;
   cursor: pointer;
+  transition: background 0.08s;
 }
-.chk-item input { margin-right: 8px; }
-.chk-item .cnt { color: var(--muted); margin-left: auto; font-size: 10px; }
+.chk-item:hover { background: rgba(99, 102, 241, 0.08); }
+.chk-item input {
+  margin: 0;
+  cursor: pointer;
+  accent-color: var(--accent);
+  flex-shrink: 0;
+}
+.chk-item .nm {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.chk-item .cnt {
+  color: var(--muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  min-width: 36px;
+  text-align: right;
+  flex-shrink: 0;
+}
 
 .range-row { display: flex; gap: 6px; align-items: center; font-size: 12px; }
 .range-row input[type=number] { flex: 1; }
@@ -357,13 +412,14 @@ function buildSidebar() {
     const row = document.createElement('div');
     row.className = 'flt-row';
     row.dataset.id = spec.id;
+    const multiClass = (spec.id === 'flt-layer' || spec.id === 'flt-market') ? ' popup-multi' : '';
     row.innerHTML = `
       <div class="label">${spec.label}</div>
       <div class="right">
         <span class="summary dim" data-summary="${spec.id}">Any</span>
         <span class="chev">&#x25BC;</span>
       </div>
-      <div class="popup" data-popup="${spec.id}"></div>
+      <div class="popup${multiClass}" data-popup="${spec.id}"></div>
     `;
     row.addEventListener('click', (e) => {
       // Don't toggle when click is inside the popup
@@ -391,34 +447,34 @@ function renderPopupContent(spec, layerCounts, marketCounts) {
     FILTER_STATE.allLayers.forEach(k => {
       inner += `<label class="chk-item">
         <input type="checkbox" data-layer="${k}" checked>
-        ${LAYER_LABELS[k]||k}
-        <span class="cnt">${layerCounts[k]}</span>
+        <span class="nm">${LAYER_LABELS[k]||k}</span>
+        <span class="cnt">${(layerCounts[k]||0).toLocaleString()}</span>
       </label>`;
     });
-    inner += `<div class="done-row">
+    inner += `<div class="action-row">
       <button class="btn-mini" data-action="layer-all">Select all</button>
       <button class="btn-mini" data-action="layer-none">Clear</button>
-      <button class="btn-done" data-action="done">Done</button>
-    </div>`;
+    </div>
+    <button class="btn-done" data-action="done">Done</button>`;
   } else if (spec.id === 'flt-market') {
     FILTER_STATE.allMarkets.forEach(m => {
       inner += `<label class="chk-item">
         <input type="checkbox" data-market="${escAttr(m)}" checked>
-        ${escHtml(m)}
-        <span class="cnt">${marketCounts[m]}</span>
+        <span class="nm">${escHtml(m)}</span>
+        <span class="cnt">${(marketCounts[m]||0).toLocaleString()}</span>
       </label>`;
     });
-    inner += `<div class="done-row">
+    inner += `<div class="action-row">
       <button class="btn-mini" data-action="market-all">Select all</button>
       <button class="btn-mini" data-action="market-none">Clear</button>
-      <button class="btn-done" data-action="done">Done</button>
-    </div>`;
+    </div>
+    <button class="btn-done" data-action="done">Done</button>`;
   } else if (spec.id === 'flt-class') {
     inner += `
-      <label class="chk-item"><input type="radio" name="cls" value="" checked> All</label>
-      <label class="chk-item"><input type="radio" name="cls" value="A"> Class A</label>
-      <label class="chk-item"><input type="radio" name="cls" value="B+C"> Class B / C</label>
-      <div class="done-row"><div></div><button class="btn-done" data-action="done">Done</button></div>
+      <label class="chk-item"><input type="radio" name="cls" value="" checked><span class="nm">All</span></label>
+      <label class="chk-item"><input type="radio" name="cls" value="A"><span class="nm">Class A</span></label>
+      <label class="chk-item"><input type="radio" name="cls" value="B+C"><span class="nm">Class B / C</span></label>
+      <button class="btn-done standalone" data-action="done">Done</button>
     `;
   } else if (spec.id === 'flt-clr') {
     inner += `
@@ -426,7 +482,8 @@ function renderPopupContent(spec, layerCounts, marketCounts) {
         <input type="number" id="clr-min" placeholder="e.g. 24" min="0" max="60" step="1">
         <span style="font-size:11px;color:var(--muted);">ft min</span>
       </div>
-      <div class="done-row"><button class="btn-mini" data-action="clear-clr">Clear</button><button class="btn-done" data-action="done">Done</button></div>
+      <div class="action-row"><button class="btn-mini" data-action="clear-clr">Clear</button></div>
+      <button class="btn-done" data-action="done">Done</button>
     `;
   } else if (spec.id === 'flt-sf') {
     inner += `
@@ -435,7 +492,8 @@ function renderPopupContent(spec, layerCounts, marketCounts) {
         <span class="sep">to</span>
         <input type="number" id="sf-max" placeholder="Max" min="0" step="100">
       </div>
-      <div class="done-row"><button class="btn-mini" data-action="clear-sf">Clear</button><button class="btn-done" data-action="done">Done</button></div>
+      <div class="action-row"><button class="btn-mini" data-action="clear-sf">Clear</button></div>
+      <button class="btn-done" data-action="done">Done</button>
     `;
   } else if (spec.id === 'flt-date') {
     inner += `
@@ -451,7 +509,7 @@ function renderPopupContent(spec, layerCounts, marketCounts) {
         <button class="btn-preset" data-preset="ytd">YTD</button>
         <button class="btn-preset" data-preset="all">All</button>
       </div>
-      <div class="done-row"><div></div><button class="btn-done" data-action="done">Done</button></div>
+      <button class="btn-done standalone" data-action="done">Done</button>
     `;
   } else if (spec.id === 'flt-psf') {
     inner += `
@@ -461,7 +519,8 @@ function renderPopupContent(spec, layerCounts, marketCounts) {
         <input type="number" id="psf-max" placeholder="Max" min="0" step="5">
       </div>
       <div style="font-size:10px;color:var(--muted);margin-top:6px;">Applies to sale layers only.</div>
-      <div class="done-row"><button class="btn-mini" data-action="clear-psf">Clear</button><button class="btn-done" data-action="done">Done</button></div>
+      <div class="action-row"><button class="btn-mini" data-action="clear-psf">Clear</button></div>
+      <button class="btn-done" data-action="done">Done</button>
     `;
   } else if (spec.id === 'flt-rent') {
     inner += `
@@ -471,7 +530,8 @@ function renderPopupContent(spec, layerCounts, marketCounts) {
         <input type="number" id="rent-max" placeholder="Max" min="0" step="0.5">
       </div>
       <div style="font-size:10px;color:var(--muted);margin-top:6px;">Applies to industrial lease only.</div>
-      <div class="done-row"><button class="btn-mini" data-action="clear-rent">Clear</button><button class="btn-done" data-action="done">Done</button></div>
+      <div class="action-row"><button class="btn-mini" data-action="clear-rent">Clear</button></div>
+      <button class="btn-done" data-action="done">Done</button>
     `;
   } else if (spec.id === 'flt-rac') {
     inner += `
@@ -481,7 +541,8 @@ function renderPopupContent(spec, layerCounts, marketCounts) {
         <input type="number" id="rac-max" placeholder="Max" min="0" step="500">
       </div>
       <div style="font-size:10px;color:var(--muted);margin-top:6px;">Applies to IOS rent only.</div>
-      <div class="done-row"><button class="btn-mini" data-action="clear-rac">Clear</button><button class="btn-done" data-action="done">Done</button></div>
+      <div class="action-row"><button class="btn-mini" data-action="clear-rac">Clear</button></div>
+      <button class="btn-done" data-action="done">Done</button>
     `;
   }
 
