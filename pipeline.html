@@ -146,15 +146,25 @@ header .btn {
     <p style="font-size:11px;color:#64748b;margin-bottom:14px;">Fill in what you know. This generates a Claude Code command that inserts the deal, geocodes it, and pushes the map.</p>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:12px;color:#94a3b8;">
       <label style="grid-column:1/3;">Address*<input id="adAddr" placeholder="1656 Townhurst Dr, Houston, TX" style="width:100%;margin-top:3px;padding:7px;border-radius:6px;border:1px solid #3a3a5c;background:#16162a;color:#e2e8f0;"></label>
-      <label>Market*<select id="adMkt" style="width:100%;margin-top:3px;padding:7px;border-radius:6px;border:1px solid #3a3a5c;background:#16162a;color:#e2e8f0;">
-        <option>Houston</option><option>Dallas-Fort Worth</option><option>San Antonio</option><option>Austin</option>
-        <option>Miami</option><option>Orlando</option><option>Tampa</option><option>SW Florida</option><option>Central Florida</option>
-        <option>Atlanta</option><option>Charlotte</option><option>Charleston</option><option>Columbia, SC</option><option>Jacksonville</option><option>Virginia</option>
-      </select></label>
+      <label>Market* <span style="font-size:9px;color:#64748b;">(pick or type a new one)</span>
+        <input id="adMkt" list="mktList" value="Houston" style="width:100%;margin-top:3px;padding:7px;border-radius:6px;border:1px solid #3a3a5c;background:#16162a;color:#e2e8f0;">
+        <datalist id="mktList">
+          <option>Houston</option><option>Dallas-Fort Worth</option><option>San Antonio</option><option>Austin</option>
+          <option>El Paso</option><option>Miami</option><option>Fort Lauderdale</option><option>West Palm Beach</option>
+          <option>Treasure Coast</option><option>Orlando</option><option>Tampa</option><option>SW Florida</option>
+          <option>Central Florida</option><option>Jacksonville</option><option>Atlanta</option><option>Savannah</option>
+          <option>Charlotte</option><option>Raleigh-Durham</option><option>Charleston</option><option>Columbia, SC</option>
+          <option>Greenville-Spartanburg</option><option>Nashville</option><option>Memphis</option><option>Virginia</option>
+          <option>Phoenix</option><option>Denver</option>
+        </datalist>
+      </label>
       <label>Submarket<input id="adSub" style="width:100%;margin-top:3px;padding:7px;border-radius:6px;border:1px solid #3a3a5c;background:#16162a;color:#e2e8f0;"></label>
-      <label>Deal Type*<select id="adType" style="width:100%;margin-top:3px;padding:7px;border-radius:6px;border:1px solid #3a3a5c;background:#16162a;color:#e2e8f0;">
-        <option>Industrial</option><option>IOS</option>
-      </select></label>
+      <label>Deal Type* <span style="font-size:9px;color:#64748b;">(pick or type)</span>
+        <input id="adType" list="typeList" value="Industrial" style="width:100%;margin-top:3px;padding:7px;border-radius:6px;border:1px solid #3a3a5c;background:#16162a;color:#e2e8f0;">
+        <datalist id="typeList">
+          <option>Industrial</option><option>IOS</option><option>Office</option><option>Retail</option><option>Land</option><option>Flex</option>
+        </datalist>
+      </label>
       <label>Status<select id="adStatus" style="width:100%;margin-top:3px;padding:7px;border-radius:6px;border:1px solid #3a3a5c;background:#16162a;color:#e2e8f0;">
         <option>Evaluating</option><option>Reviewing OM</option><option>LOI</option><option>Under Contract</option>
       </select></label>
@@ -187,7 +197,7 @@ function buildAddCmd() {
   let cmd = 'cd C:\\Projects\\cofe-database && python add_pipeline_deal.py'
       + ' --address ' + esc(addr)
       + ' --market ' + esc(v('adMkt'))
-      + ' --deal-type ' + v('adType')
+      + ' --deal-type ' + esc(v('adType'))
       + ' --status ' + esc(v('adStatus'));
   if (v('adSub')) cmd += ' --submarket ' + esc(v('adSub'));
   if (v('adSF'))  cmd += ' --sf ' + v('adSF');
