@@ -112,7 +112,7 @@ header .btn {
     <h1><span>COFE</span> Properties &mdash; Deal Pipeline</h1>
   </div>
   <div class="actions">
-    <button class="btn btn-add" onclick="alert('Coming in Phase 2')">+ Add Deal</button>
+    <button class="btn btn-add" onclick="document.getElementById('addModal').style.display='flex'">+ Add Deal</button>
   </div>
 </header>
 
@@ -138,6 +138,69 @@ header .btn {
 <div class="summary" id="summary"></div>
 <div class="grid" id="grid"></div>
 <div class="empty" id="empty" style="display:none">No pipeline deals found.</div>
+
+<!-- Add Deal modal -->
+<div id="addModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:100;align-items:center;justify-content:center;">
+  <div style="background:#1e1e2e;border:1px solid #3a3a5c;border-radius:10px;padding:22px;width:520px;max-width:94vw;max-height:92vh;overflow:auto;">
+    <h2 style="font-size:15px;color:#e2e8f0;margin-bottom:4px;">+ Add Deal</h2>
+    <p style="font-size:11px;color:#64748b;margin-bottom:14px;">Fill in what you know. This generates a Claude Code command that inserts the deal, geocodes it, and pushes the map.</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:12px;color:#94a3b8;">
+      <label style="grid-column:1/3;">Address*<input id="adAddr" placeholder="1656 Townhurst Dr, Houston, TX" style="width:100%;margin-top:3px;padding:7px;border-radius:6px;border:1px solid #3a3a5c;background:#16162a;color:#e2e8f0;"></label>
+      <label>Market*<select id="adMkt" style="width:100%;margin-top:3px;padding:7px;border-radius:6px;border:1px solid #3a3a5c;background:#16162a;color:#e2e8f0;">
+        <option>Houston</option><option>Dallas-Fort Worth</option><option>San Antonio</option><option>Austin</option>
+        <option>Miami</option><option>Orlando</option><option>Tampa</option><option>SW Florida</option><option>Central Florida</option>
+        <option>Atlanta</option><option>Charlotte</option><option>Charleston</option><option>Columbia, SC</option><option>Jacksonville</option><option>Virginia</option>
+      </select></label>
+      <label>Submarket<input id="adSub" style="width:100%;margin-top:3px;padding:7px;border-radius:6px;border:1px solid #3a3a5c;background:#16162a;color:#e2e8f0;"></label>
+      <label>Deal Type*<select id="adType" style="width:100%;margin-top:3px;padding:7px;border-radius:6px;border:1px solid #3a3a5c;background:#16162a;color:#e2e8f0;">
+        <option>Industrial</option><option>IOS</option>
+      </select></label>
+      <label>Status<select id="adStatus" style="width:100%;margin-top:3px;padding:7px;border-radius:6px;border:1px solid #3a3a5c;background:#16162a;color:#e2e8f0;">
+        <option>Evaluating</option><option>Reviewing OM</option><option>LOI</option><option>Under Contract</option>
+      </select></label>
+      <label>Building SF<input id="adSF" type="number" style="width:100%;margin-top:3px;padding:7px;border-radius:6px;border:1px solid #3a3a5c;background:#16162a;color:#e2e8f0;"></label>
+      <label>Year Built<input id="adYB" style="width:100%;margin-top:3px;padding:7px;border-radius:6px;border:1px solid #3a3a5c;background:#16162a;color:#e2e8f0;"></label>
+      <label>Total Acres<input id="adTAc" type="number" step="0.01" style="width:100%;margin-top:3px;padding:7px;border-radius:6px;border:1px solid #3a3a5c;background:#16162a;color:#e2e8f0;"></label>
+      <label>Usable Acres<input id="adUAc" type="number" step="0.01" style="width:100%;margin-top:3px;padding:7px;border-radius:6px;border:1px solid #3a3a5c;background:#16162a;color:#e2e8f0;"></label>
+      <label>Asking $<input id="adAsk" type="number" style="width:100%;margin-top:3px;padding:7px;border-radius:6px;border:1px solid #3a3a5c;background:#16162a;color:#e2e8f0;"></label>
+      <label>Target $<input id="adTgt" type="number" style="width:100%;margin-top:3px;padding:7px;border-radius:6px;border:1px solid #3a3a5c;background:#16162a;color:#e2e8f0;"></label>
+      <label style="grid-column:1/3;">Zoning<input id="adZon" style="width:100%;margin-top:3px;padding:7px;border-radius:6px;border:1px solid #3a3a5c;background:#16162a;color:#e2e8f0;"></label>
+    </div>
+    <div style="margin-top:14px;display:flex;gap:8px;">
+      <button class="btn btn-add" onclick="buildAddCmd()">Generate Command</button>
+      <button class="btn" style="background:#16162a;color:#94a3b8;" onclick="document.getElementById('addModal').style.display='none';document.getElementById('adOut').style.display='none';">Close</button>
+    </div>
+    <div id="adOut" style="display:none;margin-top:12px;">
+      <p style="font-size:11px;color:#64748b;margin-bottom:6px;">Paste this into Claude Code (it inserts, geocodes, exports, and pushes — pin appears on the map in ~1 min):</p>
+      <textarea id="adCmd" readonly style="width:100%;height:110px;padding:8px;font-size:11px;font-family:monospace;border-radius:6px;border:1px solid #3a3a5c;background:#0f0f1e;color:#a5f3a5;"></textarea>
+      <button class="btn btn-add" style="margin-top:6px;" onclick="navigator.clipboard.writeText(document.getElementById('adCmd').value).then(()=>{this.textContent='Copied!';setTimeout(()=>this.textContent='Copy Command',1500)})">Copy Command</button>
+    </div>
+  </div>
+</div>
+
+<script>
+function buildAddCmd() {
+  const v = id => document.getElementById(id).value.trim();
+  const addr = v('adAddr');
+  if (!addr) { alert('Address is required'); return; }
+  const esc = s => '"' + s.replace(/"/g, '') + '"';
+  let cmd = 'cd C:\\Projects\\cofe-database && python add_pipeline_deal.py'
+      + ' --address ' + esc(addr)
+      + ' --market ' + esc(v('adMkt'))
+      + ' --deal-type ' + v('adType')
+      + ' --status ' + esc(v('adStatus'));
+  if (v('adSub')) cmd += ' --submarket ' + esc(v('adSub'));
+  if (v('adSF'))  cmd += ' --sf ' + v('adSF');
+  if (v('adTAc')) cmd += ' --total-ac ' + v('adTAc');
+  if (v('adUAc')) cmd += ' --usable-ac ' + v('adUAc');
+  if (v('adYB'))  cmd += ' --year-built ' + esc(v('adYB'));
+  if (v('adZon')) cmd += ' --zoning ' + esc(v('adZon'));
+  if (v('adAsk')) cmd += ' --asking ' + v('adAsk');
+  if (v('adTgt')) cmd += ' --target ' + v('adTgt');
+  document.getElementById('adCmd').value = cmd;
+  document.getElementById('adOut').style.display = 'block';
+}
+</script>
 
 <script>
 (function() {
