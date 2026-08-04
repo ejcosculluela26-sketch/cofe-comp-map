@@ -19,7 +19,7 @@ If the user has a property selected on the map, you'll see it noted at the start
 const LAYER_LABELS = {
   ind_sale: 'Industrial Sale', ind_lease: 'Industrial Lease',
   ios_sale: 'IOS Sale', ios_rent: 'IOS Rent',
-  ios_pipeline: 'IOS Pipeline', ind_pipeline: 'Ind. Pipeline', cofe_owned: 'COFE Owned', cofe_sold: 'COFE Sold'
+  ios_pipeline: 'IOS Pipeline', ind_pipeline: 'Deal Pipeline', cofe_owned: 'COFE Owned', cofe_sold: 'COFE Sold'
 };
 
 /* ---- market keyword map for query detection ---- */
