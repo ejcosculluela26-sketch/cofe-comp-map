@@ -112,6 +112,7 @@ header .btn {
     <h1><span>COFE</span> Properties &mdash; Deal Pipeline</h1>
   </div>
   <div class="actions">
+    <button class="btn" id="syncBtn" style="display:none;background:#2a1a0a;color:#f6ad55;border-color:#f6ad55;" onclick="openSyncModal()">&#8593; Sync to DB (<span id="pendingCount">0</span>)</button>
     <button class="btn btn-add" onclick="document.getElementById('addModal').style.display='flex'">+ Add Deal</button>
   </div>
 </header>
@@ -138,6 +139,53 @@ header .btn {
 <div class="summary" id="summary"></div>
 <div class="grid" id="grid"></div>
 <div class="empty" id="empty" style="display:none">No pipeline deals found.</div>
+
+<!-- Edit Deal modal -->
+<div id="editModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:100;align-items:center;justify-content:center;">
+  <div style="background:#1e1e2e;border:1px solid #3a3a5c;border-radius:10px;padding:22px;width:520px;max-width:94vw;max-height:92vh;overflow:auto;">
+    <h2 style="font-size:15px;color:#e2e8f0;margin-bottom:4px;">Edit Deal <span id="edTitle" style="color:#94a3b8;font-weight:400;font-size:12px;"></span></h2>
+    <p style="font-size:11px;color:#64748b;margin-bottom:14px;">Changes apply on this page instantly and queue for the next "Sync to DB".</p>
+    <input type="hidden" id="edRow">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:12px;color:#94a3b8;">
+      <label style="grid-column:1/3;">Address <span style="font-size:9px;color:#64748b;">(changing it re-geocodes the pin on sync)</span><input id="edAddr" style="width:100%;margin-top:3px;padding:7px;border-radius:6px;border:1px solid #3a3a5c;background:#16162a;color:#e2e8f0;"></label>
+      <label>Market<input id="edMkt" list="mktList" style="width:100%;margin-top:3px;padding:7px;border-radius:6px;border:1px solid #3a3a5c;background:#16162a;color:#e2e8f0;"></label>
+      <label>Submarket<input id="edSub" style="width:100%;margin-top:3px;padding:7px;border-radius:6px;border:1px solid #3a3a5c;background:#16162a;color:#e2e8f0;"></label>
+      <label>Deal Type<input id="edType" list="typeList" style="width:100%;margin-top:3px;padding:7px;border-radius:6px;border:1px solid #3a3a5c;background:#16162a;color:#e2e8f0;"></label>
+      <label>Status<input id="edStatus" list="statusList" style="width:100%;margin-top:3px;padding:7px;border-radius:6px;border:1px solid #3a3a5c;background:#16162a;color:#e2e8f0;">
+        <datalist id="statusList">
+          <option>Evaluating</option><option>Reviewing OM</option><option>LOI</option><option>Under Contract</option><option>Passed</option><option>Dead</option>
+        </datalist>
+      </label>
+      <label>Building SF<input id="edSF" type="number" style="width:100%;margin-top:3px;padding:7px;border-radius:6px;border:1px solid #3a3a5c;background:#16162a;color:#e2e8f0;"></label>
+      <label>Year Built<input id="edYB" style="width:100%;margin-top:3px;padding:7px;border-radius:6px;border:1px solid #3a3a5c;background:#16162a;color:#e2e8f0;"></label>
+      <label>Total Acres<input id="edTAc" type="number" step="0.01" style="width:100%;margin-top:3px;padding:7px;border-radius:6px;border:1px solid #3a3a5c;background:#16162a;color:#e2e8f0;"></label>
+      <label>Usable Acres<input id="edUAc" type="number" step="0.01" style="width:100%;margin-top:3px;padding:7px;border-radius:6px;border:1px solid #3a3a5c;background:#16162a;color:#e2e8f0;"></label>
+      <label>Asking $<input id="edAsk" type="number" style="width:100%;margin-top:3px;padding:7px;border-radius:6px;border:1px solid #3a3a5c;background:#16162a;color:#e2e8f0;"></label>
+      <label>Target $<input id="edTgt" type="number" style="width:100%;margin-top:3px;padding:7px;border-radius:6px;border:1px solid #3a3a5c;background:#16162a;color:#e2e8f0;"></label>
+      <label style="grid-column:1/3;">Zoning<input id="edZon" style="width:100%;margin-top:3px;padding:7px;border-radius:6px;border:1px solid #3a3a5c;background:#16162a;color:#e2e8f0;"></label>
+    </div>
+    <div style="margin-top:14px;display:flex;gap:8px;">
+      <button class="btn btn-add" onclick="saveEdit()">Save (queues for sync)</button>
+      <button class="btn" style="background:#16162a;color:#94a3b8;" onclick="document.getElementById('editModal').style.display='none'">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Sync modal -->
+<div id="syncModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:100;align-items:center;justify-content:center;">
+  <div style="background:#1e1e2e;border:1px solid #3a3a5c;border-radius:10px;padding:22px;width:560px;max-width:94vw;max-height:92vh;overflow:auto;">
+    <h2 style="font-size:15px;color:#e2e8f0;margin-bottom:4px;">Sync pending changes to database</h2>
+    <div id="syncSummary" style="font-size:11px;color:#94a3b8;margin:10px 0;line-height:1.6;"></div>
+    <p style="font-size:11px;color:#64748b;margin-bottom:6px;">Paste this into Claude Code — it applies everything (re-geocoding any changed addresses), then updates the live map:</p>
+    <textarea id="syncCmd" readonly style="width:100%;height:90px;padding:8px;font-size:11px;font-family:monospace;border-radius:6px;border:1px solid #3a3a5c;background:#0f0f1e;color:#a5f3a5;"></textarea>
+    <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="btn btn-add" onclick="navigator.clipboard.writeText(document.getElementById('syncCmd').value).then(()=>{this.textContent='Copied!';setTimeout(()=>this.textContent='Copy Command',1500)})">Copy Command</button>
+      <button class="btn" style="background:#0a2a0a;color:#4ade80;border-color:#4ade80;" onclick="clearPending()" title="Click after the command has run successfully">Clear synced changes</button>
+      <button class="btn" style="background:#2a0a0a;color:#f56565;border-color:#f56565;" onclick="if(confirm('Discard all pending local changes?')) clearPending()">Discard changes</button>
+      <button class="btn" style="background:#16162a;color:#94a3b8;" onclick="document.getElementById('syncModal').style.display='none'">Close</button>
+    </div>
+  </div>
+</div>
 
 <!-- Add Deal modal -->
 <div id="addModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:100;align-items:center;justify-content:center;">
@@ -213,22 +261,93 @@ function buildAddCmd() {
 </script>
 
 <script>
+  // ── Pending-changes queue (browser-side until "Sync to DB") ──
+  const QKEY = 'pipeline_pending_changes';
+  function getPending() {
+    try { return JSON.parse(localStorage.getItem(QKEY) || '{}'); } catch { return {}; }
+  }
+  function setPending(q) {
+    localStorage.setItem(QKEY, JSON.stringify(q));
+    updateSyncBtn();
+  }
+  function queueUpdate(rowId, fields) {
+    const q = getPending();
+    const e = q[rowId] || { action: 'update', fields: {} };
+    if (e.action !== 'delete') Object.assign(e.fields, fields);
+    q[rowId] = e;
+    setPending(q);
+  }
+  function queueDelete(rowId) {
+    const q = getPending();
+    q[rowId] = { action: 'delete' };
+    setPending(q);
+  }
+  function clearPending() {
+    localStorage.removeItem(QKEY);
+    localStorage.removeItem('pipeline_status_overrides'); // legacy
+    updateSyncBtn();
+    document.getElementById('syncModal').style.display = 'none';
+    window.renderDeals && window.renderDeals();
+  }
+  function updateSyncBtn() {
+    const n = Object.keys(getPending()).length;
+    document.getElementById('pendingCount').textContent = n;
+    document.getElementById('syncBtn').style.display = n ? '' : 'none';
+  }
+  function openSyncModal() {
+    const q = getPending();
+    const changes = Object.entries(q).map(([row, e]) =>
+      Object.assign({ row: parseInt(row, 10) }, e));
+    if (!changes.length) return;
+    const lines = changes.map(c => {
+      const deal = (window.allDealsRef || []).find(d => String(d.row) === String(c.row));
+      const name = deal ? (deal.n || deal.a) : ('deal ' + c.row);
+      return c.action === 'delete'
+        ? '&#10060; DELETE — ' + name
+        : '&#9998; UPDATE — ' + name + ': ' + Object.keys(c.fields).join(', ');
+    });
+    document.getElementById('syncSummary').innerHTML = lines.join('<br>');
+    const b64 = btoa(unescape(encodeURIComponent(JSON.stringify(changes))));
+    document.getElementById('syncCmd').value =
+      'cd C:\\Projects\\cofe-database && python apply_pipeline_changes.py --changes-b64 ' + b64;
+    document.getElementById('syncModal').style.display = 'flex';
+  }
+</script>
+
+<script>
 (function() {
-  const STATUSES = ['Under Contract', 'Reviewing', 'LOI', 'Passed', 'Dead'];
+  const STATUSES = ['Evaluating', 'Reviewing OM', 'Under Contract', 'LOI', 'Passed', 'Dead'];
   const HIDDEN_STATUSES = ['passed', 'dead']; // hidden in "Active" filter
 
-  // Local status overrides (browser-side, persists until DB sync)
-  function getOverrides() {
-    try { return JSON.parse(localStorage.getItem('pipeline_status_overrides') || '{}'); } catch { return {}; }
-  }
-  function setOverride(rowId, status) {
-    const o = getOverrides();
-    o[rowId] = status;
-    localStorage.setItem('pipeline_status_overrides', JSON.stringify(o));
+  // Effective view of a deal = data.json values + pending local changes
+  function pendingFor(rowId) {
+    return getPending()[rowId] || null;
   }
   function getStatus(deal) {
-    const o = getOverrides();
-    return o[deal.row] || deal.status || 'Unknown';
+    const p = pendingFor(deal.row);
+    if (p && p.action === 'update' && p.fields.status) return p.fields.status;
+    return deal.status || 'Unknown';
+  }
+  function isDeleted(deal) {
+    const p = pendingFor(deal.row);
+    return !!(p && p.action === 'delete');
+  }
+  function effective(deal) {
+    // merge pending field edits over the exported values for display
+    const p = pendingFor(deal.row);
+    if (!p || p.action !== 'update') return deal;
+    const f = p.fields, d = Object.assign({}, deal);
+    if (f.address) { d.a = f.address; d.n = f.address; }
+    if (f.market) d.m = f.market;
+    if (f.submarket) d.sm = f.submarket;
+    if (f.sf) d.sf = Number(f.sf).toLocaleString() + ' SF';
+    if (f.total_ac) d.total_ac = f.total_ac;
+    if (f.year_built) d.year_built = f.year_built;
+    if (f.zoning) d.zoning = f.zoning;
+    if (f.asking) d.p = '$' + Number(f.asking).toLocaleString();
+    if (f.target) d.target = '$' + Number(f.target).toLocaleString();
+    if (f.deal_type) d.l = f.deal_type === 'IOS' ? 'ios_pipeline' : 'ind_pipeline';
+    return d;
   }
 
   function statusClass(s) {
@@ -250,13 +369,14 @@ function buildAddCmd() {
     const empty = document.getElementById('empty');
 
     let filtered = allDeals.filter(d => {
+      if (isDeleted(d)) return false;
       const st = getStatus(d).toLowerCase();
       if (statusFilter === 'active') {
         if (HIDDEN_STATUSES.some(h => st.includes(h))) return false;
       } else if (statusFilter !== 'all') {
         if (!st.includes(statusFilter.toLowerCase())) return false;
       }
-      if (typeFilter && d.l !== typeFilter) return false;
+      if (typeFilter && effective(d).l !== typeFilter) return false;
       return true;
     });
 
@@ -279,8 +399,10 @@ function buildAddCmd() {
     if (!filtered.length) { empty.style.display = ''; return; }
     empty.style.display = 'none';
 
-    filtered.forEach(d => {
-      const status = getStatus(d);
+    filtered.forEach(orig => {
+      const d = effective(orig);
+      const status = getStatus(orig);
+      const hasPending = !!pendingFor(orig.row);
       const isIOS = d.l === 'ios_pipeline';
       const typeBadge = isIOS ? '<span class="type-badge type-ios">IOS</span>' : '<span class="type-badge type-ind">Industrial</span>';
       const mapUrl = d.lat && d.lng ? `index.html?fly=${d.lat},${d.lng}&row=${d.row}` : null;
@@ -314,25 +436,92 @@ function buildAddCmd() {
             <div class="card-stat"><span class="card-stat-label">Zoning</span><br><span class="card-stat-val">${d.zoning || '—'}</span></div>
           </div>
           <div class="card-footer">
-            <span class="card-sub">${d.year_built ? 'Built ' + d.year_built : ''}</span>
-            ${mapUrl ? '<a href="' + mapUrl + '" class="view-link">View on Map &#8594;</a>' : '<span class="card-sub">No coordinates</span>'}
+            <span class="card-sub">${d.year_built ? 'Built ' + d.year_built : ''}${hasPending ? ' <span style="color:#f6ad55;font-weight:700;">&#9679; pending sync</span>' : ''}</span>
+            <span style="display:flex;gap:10px;align-items:center;">
+              <a href="#" class="view-link" style="color:#a855f7;" onclick="openEditModal(${orig.row});return false;">Edit</a>
+              <a href="#" class="view-link" style="color:#f56565;" onclick="deleteDeal(${orig.row});return false;">Delete</a>
+              ${mapUrl ? '<a href="' + mapUrl + '" class="view-link">Map &#8594;</a>' : ''}
+            </span>
           </div>`;
       grid.appendChild(card);
     });
 
-    // Attach status change listeners
+    // Status change -> queue for DB sync + instant re-render
     grid.querySelectorAll('.status-select').forEach(sel => {
       sel.addEventListener('change', function() {
-        setOverride(this.dataset.row, this.value);
+        queueUpdate(this.dataset.row, { status: this.value });
         renderDeals();
       });
     });
   }
 
+  // ── Edit / Delete ──
+  window.openEditModal = function(rowId) {
+    const d = allDeals.find(x => String(x.row) === String(rowId));
+    if (!d) return;
+    const p = pendingFor(rowId);
+    const f = (p && p.action === 'update') ? p.fields : {};
+    const num = s => s ? String(s).replace(/[^0-9.]/g, '') : '';
+    document.getElementById('edRow').value = rowId;
+    document.getElementById('edTitle').textContent = '#' + rowId + ' — ' + (d.a || d.n || '');
+    document.getElementById('edAddr').value = f.address || d.a || '';
+    document.getElementById('edMkt').value = f.market || d.m || '';
+    document.getElementById('edSub').value = f.submarket || d.sm || '';
+    document.getElementById('edType').value = f.deal_type || (d.l === 'ios_pipeline' ? 'IOS' : 'Industrial');
+    document.getElementById('edStatus').value = f.status || d.status || '';
+    document.getElementById('edSF').value = f.sf || num(d.sf);
+    document.getElementById('edYB').value = f.year_built || d.year_built || '';
+    document.getElementById('edTAc').value = f.total_ac || d.total_ac || '';
+    document.getElementById('edUAc').value = f.usable_ac || d.usable_ac || '';
+    document.getElementById('edAsk').value = f.asking || num(d.p);
+    document.getElementById('edTgt').value = f.target || num(d.target);
+    document.getElementById('edZon').value = f.zoning || d.zoning || '';
+    document.getElementById('editModal').style.display = 'flex';
+  };
+
+  window.saveEdit = function() {
+    const rowId = document.getElementById('edRow').value;
+    const d = allDeals.find(x => String(x.row) === String(rowId));
+    const v = id => document.getElementById(id).value.trim();
+    const num = s => s ? String(s).replace(/[^0-9.]/g, '') : '';
+    // only queue fields that differ from what the page loaded
+    const fields = {};
+    const maybe = (key, newVal, oldVal) => {
+      if (newVal !== '' && String(newVal) !== String(oldVal || '')) fields[key] = newVal;
+    };
+    maybe('address', v('edAddr'), d.a);
+    maybe('market', v('edMkt'), d.m);
+    maybe('submarket', v('edSub'), d.sm);
+    maybe('deal_type', v('edType'), d.l === 'ios_pipeline' ? 'IOS' : 'Industrial');
+    maybe('status', v('edStatus'), d.status);
+    maybe('sf', v('edSF'), num(d.sf));
+    maybe('year_built', v('edYB'), d.year_built);
+    maybe('total_ac', v('edTAc'), d.total_ac);
+    maybe('usable_ac', v('edUAc'), d.usable_ac);
+    maybe('asking', v('edAsk'), num(d.p));
+    maybe('target', v('edTgt'), num(d.target));
+    maybe('zoning', v('edZon'), d.zoning);
+    if (Object.keys(fields).length) queueUpdate(rowId, fields);
+    document.getElementById('editModal').style.display = 'none';
+    renderDeals();
+  };
+
+  window.deleteDeal = function(rowId) {
+    const d = allDeals.find(x => String(x.row) === String(rowId));
+    const name = d ? (d.n || d.a) : ('deal ' + rowId);
+    if (!confirm('Delete "' + name + '" from the pipeline?\n\nIt disappears from this page now and is removed from the database on the next Sync.')) return;
+    queueDelete(rowId);
+    renderDeals();
+  };
+
+  window.renderDeals = renderDeals;
+
   fetch('data.json')
     .then(r => r.json())
     .then(data => {
       allDeals = data.filter(d => d.l === 'ios_pipeline' || d.l === 'ind_pipeline');
+      window.allDealsRef = allDeals;
+      updateSyncBtn();
       if (!allDeals.length) { document.getElementById('empty').style.display = ''; return; }
       renderDeals();
     })
