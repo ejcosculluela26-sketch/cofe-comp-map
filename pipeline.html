@@ -132,8 +132,8 @@ header .btn {
   <label>Type</label>
   <select id="filterType">
     <option value="">All Types</option>
-    <option value="ios_pipeline">IOS</option>
-    <option value="ind_pipeline">Industrial</option>
+    <option value="IOS">IOS</option>
+    <option value="Industrial">Industrial</option>
   </select>
   <div class="filter-count">Showing <strong id="showCount">0</strong> deals</div>
 </div>
@@ -373,7 +373,7 @@ function buildAddCmd() {
     if (f.zoning) d.zoning = f.zoning;
     if (f.asking) d.p = '$' + Number(f.asking).toLocaleString();
     if (f.target) d.target = '$' + Number(f.target).toLocaleString();
-    if (f.deal_type) { d.l = f.deal_type === 'IOS' ? 'ios_pipeline' : 'ind_pipeline'; d.dtype = f.deal_type; }
+    if (f.deal_type) { d.l = 'ind_pipeline'; d.dtype = f.deal_type; }
     // recompute Price/SF preview when pricing or SF changed
     if (f.asking || f.sf) {
       const parseN = s => { const n = parseFloat(String(s || '').replace(/[^0-9.]/g, '')); return isNaN(n) ? null : n; };
@@ -410,7 +410,7 @@ function buildAddCmd() {
       } else if (statusFilter !== 'all') {
         if (!st.includes(statusFilter.toLowerCase())) return false;
       }
-      if (typeFilter && effective(d).l !== typeFilter) return false;
+      if (typeFilter) { const ed = effective(d); const edt = ed.dtype || (ed.l === 'ios_pipeline' ? 'IOS' : 'Industrial'); if ((typeFilter === 'IOS') !== (edt === 'IOS')) return false; }
       return true;
     });
 
@@ -418,8 +418,8 @@ function buildAddCmd() {
 
     // Summary (always based on all deals)
     const total = allDeals.length;
-    const iosCount = allDeals.filter(d => d.l === 'ios_pipeline').length;
-    const indCount = allDeals.filter(d => d.l === 'ind_pipeline').length;
+    const iosCount = allDeals.filter(d => (d.dtype || (d.l === 'ios_pipeline' ? 'IOS' : 'Industrial')) === 'IOS').length;
+    const indCount = allDeals.length - iosCount;
     const activeCount = allDeals.filter(d => !HIDDEN_STATUSES.some(h => getStatus(d).toLowerCase().includes(h))).length;
     const passedCount = total - activeCount;
     document.getElementById('summary').innerHTML =
