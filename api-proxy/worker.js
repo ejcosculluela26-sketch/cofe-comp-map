@@ -9,6 +9,8 @@
  */
 
 const ALLOWED_ORIGINS = [
+  'https://cofedatabase.com',
+  'https://www.cofedatabase.com',
   'https://ejcosculluela26-sketch.github.io',
   'http://localhost:8080',
   'http://127.0.0.1:8080',
