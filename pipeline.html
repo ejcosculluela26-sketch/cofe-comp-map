@@ -64,6 +64,7 @@ header .btn {
 }
 .type-ios { background:#a855f733; color:#a855f7; }
 .type-ind { background:#6366f133; color:#6366f1; }
+.type-oth { background:#4ade8033; color:#4ade80; }
 
 .card-stats { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
 .card-stat { font-size:11px; }
@@ -346,7 +347,14 @@ function buildAddCmd() {
     if (f.zoning) d.zoning = f.zoning;
     if (f.asking) d.p = '$' + Number(f.asking).toLocaleString();
     if (f.target) d.target = '$' + Number(f.target).toLocaleString();
-    if (f.deal_type) d.l = f.deal_type === 'IOS' ? 'ios_pipeline' : 'ind_pipeline';
+    if (f.deal_type) { d.l = f.deal_type === 'IOS' ? 'ios_pipeline' : 'ind_pipeline'; d.dtype = f.deal_type; }
+    // recompute Price/SF preview when pricing or SF changed
+    if (f.asking || f.sf) {
+      const parseN = s => { const n = parseFloat(String(s || '').replace(/[^0-9.]/g, '')); return isNaN(n) ? null : n; };
+      const ask = f.asking ? Number(f.asking) : parseN(deal.p);
+      const sf = f.sf ? Number(f.sf) : parseN(deal.sf);
+      d.psf = (ask && sf) ? '$' + (ask / sf).toFixed(2) + '/SF' : '—';
+    }
     return d;
   }
 
@@ -403,8 +411,9 @@ function buildAddCmd() {
       const d = effective(orig);
       const status = getStatus(orig);
       const hasPending = !!pendingFor(orig.row);
-      const isIOS = d.l === 'ios_pipeline';
-      const typeBadge = isIOS ? '<span class="type-badge type-ios">IOS</span>' : '<span class="type-badge type-ind">Industrial</span>';
+      const dtype = d.dtype || (d.l === 'ios_pipeline' ? 'IOS' : 'Industrial');
+      const typeCls = dtype === 'IOS' ? 'type-ios' : (dtype === 'Industrial' ? 'type-ind' : 'type-oth');
+      const typeBadge = `<span class="type-badge ${typeCls}">${dtype}</span>`;
       const mapUrl = d.lat && d.lng ? `index.html?fly=${d.lat},${d.lng}&row=${d.row}` : null;
 
       // Build status dropdown
@@ -432,6 +441,7 @@ function buildAddCmd() {
             <div class="card-stat"><span class="card-stat-label">Asking Price</span><br><span class="card-stat-val">${d.p || '—'}</span></div>
             <div class="card-stat"><span class="card-stat-label">Total Acreage</span><br><span class="card-stat-val">${d.total_ac ? d.total_ac + ' AC' : '—'}</span></div>
             <div class="card-stat"><span class="card-stat-label">Target Price</span><br><span class="card-stat-val">${d.target || '—'}</span></div>
+            <div class="card-stat"><span class="card-stat-label">Price/SF</span><br><span class="card-stat-val">${d.psf || '—'}</span></div>
             <div class="card-stat"><span class="card-stat-label">Price/Usable AC</span><br><span class="card-stat-val">${d.price_usable_ac || '—'}</span></div>
             <div class="card-stat"><span class="card-stat-label">Zoning</span><br><span class="card-stat-val">${d.zoning || '—'}</span></div>
           </div>
@@ -467,7 +477,7 @@ function buildAddCmd() {
     document.getElementById('edAddr').value = f.address || d.a || '';
     document.getElementById('edMkt').value = f.market || d.m || '';
     document.getElementById('edSub').value = f.submarket || d.sm || '';
-    document.getElementById('edType').value = f.deal_type || (d.l === 'ios_pipeline' ? 'IOS' : 'Industrial');
+    document.getElementById('edType').value = f.deal_type || d.dtype || (d.l === 'ios_pipeline' ? 'IOS' : 'Industrial');
     document.getElementById('edStatus').value = f.status || d.status || '';
     document.getElementById('edSF').value = f.sf || num(d.sf);
     document.getElementById('edYB').value = f.year_built || d.year_built || '';
@@ -492,7 +502,7 @@ function buildAddCmd() {
     maybe('address', v('edAddr'), d.a);
     maybe('market', v('edMkt'), d.m);
     maybe('submarket', v('edSub'), d.sm);
-    maybe('deal_type', v('edType'), d.l === 'ios_pipeline' ? 'IOS' : 'Industrial');
+    maybe('deal_type', v('edType'), d.dtype || (d.l === 'ios_pipeline' ? 'IOS' : 'Industrial'));
     maybe('status', v('edStatus'), d.status);
     maybe('sf', v('edSF'), num(d.sf));
     maybe('year_built', v('edYB'), d.year_built);
