@@ -151,7 +151,12 @@ header .btn {
       <label style="grid-column:1/3;">Address <span style="font-size:9px;color:#64748b;">(changing it re-geocodes the pin on sync)</span><input id="edAddr" style="width:100%;margin-top:3px;padding:7px;border-radius:6px;border:1px solid #3a3a5c;background:#16162a;color:#e2e8f0;"></label>
       <label>Market<input id="edMkt" list="mktList" style="width:100%;margin-top:3px;padding:7px;border-radius:6px;border:1px solid #3a3a5c;background:#16162a;color:#e2e8f0;"></label>
       <label>Submarket<input id="edSub" style="width:100%;margin-top:3px;padding:7px;border-radius:6px;border:1px solid #3a3a5c;background:#16162a;color:#e2e8f0;"></label>
-      <label>Deal Type<input id="edType" list="typeList" style="width:100%;margin-top:3px;padding:7px;border-radius:6px;border:1px solid #3a3a5c;background:#16162a;color:#e2e8f0;"></label>
+      <label>Deal Type
+        <select id="edType" onchange="handleTypeOther(this)" style="width:100%;margin-top:3px;padding:7px;border-radius:6px;border:1px solid #3a3a5c;background:#16162a;color:#e2e8f0;">
+          <option>Industrial</option><option>IOS</option><option>Office</option><option>Retail</option><option>Land</option><option>Flex</option>
+          <option value="__other__">Other&hellip;</option>
+        </select>
+      </label>
       <label>Status<input id="edStatus" list="statusList" style="width:100%;margin-top:3px;padding:7px;border-radius:6px;border:1px solid #3a3a5c;background:#16162a;color:#e2e8f0;">
         <datalist id="statusList">
           <option>Evaluating</option><option>Reviewing OM</option><option>LOI</option><option>Under Contract</option><option>Passed</option><option>Dead</option>
@@ -208,11 +213,11 @@ header .btn {
         </datalist>
       </label>
       <label>Submarket<input id="adSub" style="width:100%;margin-top:3px;padding:7px;border-radius:6px;border:1px solid #3a3a5c;background:#16162a;color:#e2e8f0;"></label>
-      <label>Deal Type* <span style="font-size:9px;color:#64748b;">(pick or type)</span>
-        <input id="adType" list="typeList" value="Industrial" style="width:100%;margin-top:3px;padding:7px;border-radius:6px;border:1px solid #3a3a5c;background:#16162a;color:#e2e8f0;">
-        <datalist id="typeList">
+      <label>Deal Type*
+        <select id="adType" onchange="handleTypeOther(this)" style="width:100%;margin-top:3px;padding:7px;border-radius:6px;border:1px solid #3a3a5c;background:#16162a;color:#e2e8f0;">
           <option>Industrial</option><option>IOS</option><option>Office</option><option>Retail</option><option>Land</option><option>Flex</option>
-        </datalist>
+          <option value="__other__">Other&hellip;</option>
+        </select>
       </label>
       <label>Status<select id="adStatus" style="width:100%;margin-top:3px;padding:7px;border-radius:6px;border:1px solid #3a3a5c;background:#16162a;color:#e2e8f0;">
         <option>Evaluating</option><option>Reviewing OM</option><option>LOI</option><option>Under Contract</option>
@@ -238,6 +243,27 @@ header .btn {
 </div>
 
 <script>
+function handleTypeOther(sel) {
+  if (sel.value !== '__other__') return;
+  const custom = prompt('Enter deal type:');
+  if (custom && custom.trim()) {
+    const opt = document.createElement('option');
+    opt.textContent = custom.trim();
+    sel.insertBefore(opt, sel.querySelector('option[value="__other__"]'));
+    sel.value = custom.trim();
+  } else {
+    sel.value = 'Industrial';
+  }
+}
+function setTypeSelect(sel, value) {
+  if (!value) value = 'Industrial';
+  if (![...sel.options].some(o => o.value === value || o.textContent === value)) {
+    const opt = document.createElement('option');
+    opt.textContent = value;
+    sel.insertBefore(opt, sel.querySelector('option[value="__other__"]'));
+  }
+  sel.value = value;
+}
 function buildAddCmd() {
   const v = id => document.getElementById(id).value.trim();
   const addr = v('adAddr');
@@ -477,7 +503,7 @@ function buildAddCmd() {
     document.getElementById('edAddr').value = f.address || d.a || '';
     document.getElementById('edMkt').value = f.market || d.m || '';
     document.getElementById('edSub').value = f.submarket || d.sm || '';
-    document.getElementById('edType').value = f.deal_type || d.dtype || (d.l === 'ios_pipeline' ? 'IOS' : 'Industrial');
+    setTypeSelect(document.getElementById('edType'), f.deal_type || d.dtype || (d.l === 'ios_pipeline' ? 'IOS' : 'Industrial'));
     document.getElementById('edStatus').value = f.status || d.status || '';
     document.getElementById('edSF').value = f.sf || num(d.sf);
     document.getElementById('edYB').value = f.year_built || d.year_built || '';
